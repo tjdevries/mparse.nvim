@@ -1,13 +1,17 @@
 local lpeg = require 'lpeg'
 local re = require 're'
+
+local helper = require 'src.helper'
+local patterns = require 'src.patterns'
 local util = require 'src.util'
 
 
-local P, R, S, B, C, Cc, Ct, Cp, V =
-  lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.V
+local P, R, S, B, C, Cc, Ct, Cp, Cg, Cb, V =
+  lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.Cb, lpeg.V
 
 local whitespace = S' \t\v\n\f'^1
 
+local comma = S','
 local digit = R'09'
 local letter = R('az', 'AZ') + P'_'
 local alphanum = letter + digit
@@ -16,13 +20,6 @@ local alphanum = letter + digit
 --                  digit^0 * P'.' * digit^1 * exp^-1 * fs^-1 +
 --                  digit^1 * P'.' * digit^0 * exp^-1 * fs^-1
 
--- Don't think we really have chars
-local charlit =
-  P'L'^-1 * P"'" * (P'\\' * P(1) + (1 - S"\\'"))^1 * P"'"
-
-local stringlit =
-  P'L'^-1 * P'"' * (P'\\' * P(1) + (1 - S'\\"'))^0 * P'"'
-
 -- create a pattern which captures the lua value [id] and the input matching
 -- [patt] in a table
 local function token(id, patt)
@@ -30,11 +27,7 @@ local function token(id, patt)
   -- return Ct(Cc(id) * C(patt))
   return Ct(Cc(id) * C(patt) * Cp(patt))
 end
-local function untilToken(chars) return ((1 - P(chars))^0 * P(chars)) end
-local function insideToken(chars) return S(chars) * untilToken(chars) end
-local function withinChars(start, patt, finish)
-  return B(start) * patt * S(finish)
-end
+
 
 -- standard commands {{{
 local mCommand = C(
@@ -85,18 +78,13 @@ local mCommand = C(
 
 -- Function type items
 
--- TODO: Figure out how to do optional: ^[0-9]\+/
--- local mArguments = token('mArguments',
---     withinChars('(', R('AZ', 'az', '09')^0 + P(','), ')'))
-local mLeftParen = token('mLeftParen', P'(')
-local mRightParen = token('mRightParen', P')')
-
-local commandOperators = S'!'
+local commandOperator = S'!'
 
 local mValidIdentifiers = R('AZ', 'az', '09')
 local mValidString = mValidIdentifiers + whitespace
 local mAny = mValidString + S'!' + S',' + S'"'
 
+-- Optional end of line matching
 local EOL = S'\n'^-1
 
 -- ordered choice of all tokens and last-resort error which consumes one character
@@ -104,9 +92,15 @@ m_grammar = P{
   "mFile";
 
   mFile = V("mBlock") * EOL + Ct(""),
-  mBlock = Ct(V("mComment") + V("mLabel") + V("mCommand") + V("mString")),
+  mBlock = Ct(
+    V("mComment")
+    + V("mLabel")
+    + V("mCommand")
+    + V("mString")
+    + V("mWhitespace")
+  ),
 
-  mComment = P';' * untilToken('\n')
+  mComment = P';' * helper.untilChars('\n')
     / util.mark('mComment'),
 
 
@@ -114,14 +108,19 @@ m_grammar = P{
   mString = (S'"' * C(mValidString^0) * S'"')
     / util.mark('mString'),
 
-  mLabel = (P'%' + R'AZ') * R('AZ', 'az', '09')^0
+  mLabel = V("mLabelName")
     * V("mArgumentDeclaration")
     * V("mBody")
     / util.mark('mLabel'),
 
+  mLabelName = (P'%' + R'AZ') * R('AZ', 'az', '09')^0
+    / util.mark('mLabelName'),
+
   mArgument = R('AZ', 'az', '09')^1 /
     util.mark('mArgument'),
-  mArgumentDeclaration = S'(' * V("mArgument")^-1 * S')',
+  mArgumentDeclaration = patterns.closed('(', ')', 'closed_paren')
+    * (Cb('closed_paren'))
+    / util.mark('mLabelParens'),
 
   -- Group for body
   mBody = (V("mComment") + V("mBodyLine") + V("mWhitespace"))^0,
@@ -136,12 +135,18 @@ m_grammar = P{
   mCommand = mCommand * V("mWhitespace") * V("mCommandArgs")^0
     / util.mark('mCommand'),
 
-  mCommandSep = S',',
-  mCommandOperators = R'09'^-1 * commandOperators
-    / util.mark('mCommandOperators'),
+  mCommandSep = comma,
+  mCommandOperation = commandOperator
+    / util.mark('mCommandOperation'),
+  mCommandOperator = V("mDigit") * V("mCommandOperation")
+    / util.mark('mCommandOperator'),
 
-  mCommandArgs = V("mCommandSep") + V("mCommandOperators") + V("mString") + mAny
+  mCommandArgs = V("mCommandSep") + V("mCommandOperator") + V("mString") + mAny
     / util.mark('mCommandArgs'),
+
+  -- Extra
+  mDigit = digit
+    / util.mark('digit'),
 
   mError = P(1) / util.mark('Error'),
 } * -1
