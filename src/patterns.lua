@@ -12,6 +12,34 @@ local closed = function(start, finish, name)
   })
 end
 
+local listOf = function(patt, sep)
+  patt, sep = P(patt), P(sep)
+
+  return patt * (sep * patt)^0
+end
+
+local g_paren = closed('(', ')', '_')
+
+local split = function(value, sep)
+  local g_split = P({
+    Ct(V("elem") * (V("sep") * V("elem"))^0),
+
+    sep = S(sep .. "()"),
+    elem = C(((1-V("sep")) + g_paren)^0),
+  })
+
+  return lpeg.match(g_split, value)
+end
+
+function string:split(sep)
+  local sep, fields = sep or ",", {}
+  local pattern = string.format("([^%s]+)", sep)
+  self:gsub(pattern, function(c) fields[#fields + 1] = c end)
+  return fields
+end
+
 return {
-  closed=closed
+  closed=closed,
+  listOf=listOf,
+  split=split,
 }

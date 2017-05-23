@@ -1,6 +1,7 @@
 local lpeg = require 'lpeg'
 local re = require 're'
 
+local epnfs = require 'src.token'
 local helper = require 'src.helper'
 local patterns = require 'src.patterns'
 local util = require 'src.util'
@@ -16,21 +17,8 @@ local digit = R'09'
 local letter = R('az', 'AZ') + P'_'
 local alphanum = letter + digit
 
--- local floatnum = digit^1 * exp * fs^-1 +
---                  digit^0 * P'.' * digit^1 * exp^-1 * fs^-1 +
---                  digit^1 * P'.' * digit^0 * exp^-1 * fs^-1
-
--- create a pattern which captures the lua value [id] and the input matching
--- [patt] in a table
-local function token(id, patt)
-  -- print(id, patt, type(patt))
-  -- return Ct(Cc(id) * C(patt))
-  return Ct(Cc(id) * C(patt) * Cp(patt))
-end
-
-
 -- standard commands {{{
-local mCommand = C(
+local command = C(
   P"d" +
   P"do" +
   P"g" +
@@ -81,84 +69,107 @@ local mCommand = C(
 local commandOperator = S'!'
 
 local mValidIdentifiers = R('AZ', 'az', '09')
-local mValidString = mValidIdentifiers + whitespace
-local mAny = mValidString + S'!' + S',' + S'"'
+local nonQuoteAscii = S'.'
+  + S'!'
+  + S','
+  + S'#'
+  + S'$'
+  + S'%'
+  + S'('
+  + S')'
+  + S'*'
+local mValidString = mValidIdentifiers
+  + whitespace
+  + nonQuoteAscii
+
+local mAny = mValidString +  S'"'
 
 -- Optional end of line matching
-local EOL = S'\n'^-1
+local EOL = P"\r"^-1 * P"\n"
 
 -- ordered choice of all tokens and last-resort error which consumes one character
-m_grammar = P{
-  "mFile";
+local m_grammar = epnfs.define( function(_ENV)
 
-  mFile = V("mBlock") * EOL + Ct(""),
+  START "mFile"
+
+  mFile = V("mBlock") * (EOL^-1) + Ct("")
   mBlock = Ct(
     V("mComment")
     + V("mLabel")
     + V("mCommand")
     + V("mString")
     + V("mWhitespace")
-  ),
+    + EOL
+    + 1
+  )^0
 
-  mComment = P';' * helper.untilChars('\n')
-    / util.mark('mComment'),
-
+  mComment = C(P';' * helper.untilChars('\n'))
 
   -- lpeg.match(lpeg.S('"') * lpeg.C(lpeg.R("az")^0) * lpeg.S('"'), '"hi"')
-  mString = (S'"' * C(mValidString^0) * S'"')
-    / util.mark('mString'),
+  mString = S'"' * C(mValidString^0) * S'"'
 
   mLabel = V("mLabelName")
     * V("mArgumentDeclaration")
     * V("mBody")
-    / util.mark('mLabel'),
 
-  mLabelName = (P'%' + R'AZ') * R('AZ', 'az', '09')^0
-    / util.mark('mLabelName'),
+  mLabelName = C((P'%' + R'AZ') * R('AZ', 'az', '09')^0)
 
-  mArgument = R('AZ', 'az', '09')^1 /
-    util.mark('mArgument'),
+  mArgument = R('AZ', 'az', '09')^1
+  -- I'm splitting this in `make_ast_node`, I'd like to not do that
   mArgumentDeclaration = patterns.closed('(', ')', 'closed_paren')
-    * (Cb('closed_paren'))
-    / util.mark('mLabelParens'),
+    * patterns.listOf(Cb('closed_paren'), ',')
 
   -- Group for body
-  mBody = (V("mComment") + V("mBodyLine") + V("mWhitespace"))^0,
+  mBody = (V("mComment") + V("mBodyLine") + V("mWhitespace"))^0
 
   -- TODO: Make a dotted line
   mBodyLine = V("mWhitespace")^0
-    * V("mCommand") * EOL,
+    * V("mCommand")
+    * EOL
 
 
   mWhitespace = whitespace
-    / util.mark('mWhitespace'),
-  mCommand = mCommand * V("mWhitespace") * V("mCommandArgs")^0
-    / util.mark('mCommand'),
+  mCommand = command * V("mWhitespace") * V("mCommandArgs")^0
 
-  mCommandSep = comma,
+  mCommandSep = comma
   mCommandOperation = commandOperator
-    / util.mark('mCommandOperation'),
   mCommandOperator = V("mDigit") * V("mCommandOperation")
-    / util.mark('mCommandOperator'),
 
-  mCommandArgs = V("mCommandSep") + V("mCommandOperator") + V("mString") + mAny
-    / util.mark('mCommandArgs'),
+  mCommandArgs = (
+    (V("mCommandSep")
+      + V("mCommandOperator")
+      + V("mString")
+      + V("mParameter")
+      + V("mVariable")
+      + mAny)
+    - EOL)
+
+  -- Checks what the current parameters are,
+  -- and then if it matches, then we say it's a parameter
+  -- Should allow for highlight parameters with different colors!
+  mParameter = lpeg.Cf(C(V("mVariable")), function(s, i , a, b)
+    if epnfs.declaration_parameters() == nil then
+      return nil
+    end
+
+    if a == nil then
+      return nil
+    end
+
+    if a.value == nil then
+      return nil
+    end
+
+    return epnfs.declaration_parameters()[a.value]
+  end)
+  mVariable = C((mValidIdentifiers + digit + S'^' + S'%')^1)
 
   -- Extra
   mDigit = digit
-    / util.mark('digit'),
 
-  mError = P(1) / util.mark('Error'),
-} * -1
+  mError = P(1)
+end )
 
--- public interface  {{{
--- Get the items
-local filename = arg[1]
-local fh = assert(io.open(filename))
-local input = fh:read'*a'
-fh:close()
-
--- Print the items
-print(input, '-->')
-print(util.to_string(m_grammar:match(input)))
--- }}}
+return {
+  m_grammar=m_grammar
+}

@@ -39,9 +39,10 @@ end
 
 local mark = function(name)
   return function(...)
+    -- return {name, {...}}
     return {
-      name,
-      ...
+      name=name,
+      ['next']={...},
     }
   end
 end
