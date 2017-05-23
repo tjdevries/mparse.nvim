@@ -150,7 +150,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mWhitespace = whitespace
   mCommand = command * V("mWhitespace") * V("mCommandArgs")^0
 
-  mCommandSep = comma
+  mCommandSep = C(comma)
   mCommandOperation = commandOperator
   mCommandOperator = V("mDigit") * V("mCommandOperation")
 
@@ -158,6 +158,8 @@ local m_grammar = epnfs.define( function(_ENV)
     (V("mCommandSep")
       + V("mFunctionCall")
       + V("mCommandOperator")
+      -- TODO: Some of these digits are not getting captured correctly
+      + V("mDigit")
       + V("mString")
       -- TODO: Add this with back captures or something.
       -- Not sure how to get it to work correctly
@@ -177,7 +179,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mFunctionCall = C((P'$$' + P'$') * variableIdentifiers * #S'(')
 
   -- Extra
-  mDigit = digit
+  mDigit = C(digit^1)
 
   mError = P(1)
 end )

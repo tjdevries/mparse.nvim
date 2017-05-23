@@ -9,6 +9,7 @@ CPHL mVariable blue - -
 CPHL mParameter blue - bold
 CPHL mComment Comment - Comment
 CPHL mString String - -
+CPHL mDigit Number - -
 
 CPHL mPrefixFuncionCall blue - -
 CPHL mFunctionCall yellow - -
