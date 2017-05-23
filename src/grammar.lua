@@ -129,7 +129,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
 
   mWhitespace = whitespace
-  mCommand = command * V("mWhitespace") * V("mCommandArgs")^0
+  mCommand = V("mWhitespace") * command * V("mWhitespace") * V("mCommandArgs")^0
 
   mCommandSep = comma
   mCommandOperation = commandOperator

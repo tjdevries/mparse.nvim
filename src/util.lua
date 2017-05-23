@@ -47,7 +47,29 @@ local mark = function(name)
   end
 end
 
+local t_concat = function(t1, t2)
+  local t3 = {unpack(t1)}
+  local I
+  for I = 1,#t2 do
+    t3[#t1 + I] = t2[I]
+  end
+
+  return t3
+end
+
+local contains = function(table, element)
+  for _, value in pairs(table) do
+    if value == element then
+      return true
+    end
+  end
+  return false
+end
+
+
 return {
+  contains=contains,
+  t_concat=t_concat,
   mark=mark,
   to_string=to_string,
 }
