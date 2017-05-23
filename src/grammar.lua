@@ -106,7 +106,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mComment = C(P';' * helper.untilChars('\n'))
 
   -- lpeg.match(lpeg.S('"') * lpeg.C(lpeg.R("az")^0) * lpeg.S('"'), '"hi"')
-  mString = S'"' * C(mValidString^0) * S'"'
+  mString = C(S'"' * mValidString^0 * S'"')
 
   mLabel = V("mLabelName")
     * V("mArgumentDeclaration")
@@ -120,14 +120,14 @@ local m_grammar = epnfs.define( function(_ENV)
     * patterns.listOf(Cb('closed_paren'), ',')
 
   -- Group for body
-  mBody = (V("mComment") + V("mBodyLine") + V("mWhitespace"))^0
+  mBody = (V("mComment") + V("mBodyLine"))^0
 
   -- TODO: Make a dotted line
-  mBodyLine = V("mCommand") * EOL
+  mBodyLine = V("mWhitespace")^-1 * V("mCommand") * EOL
 
 
   mWhitespace = whitespace
-  mCommand = V("mWhitespace")^1 * command * V("mWhitespace") * V("mCommandArgs")^0
+  mCommand = command * V("mWhitespace") * V("mCommandArgs")^0
 
   mCommandSep = comma
   mCommandOperation = commandOperator
@@ -145,7 +145,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
-  mParameter = lpeg.Cf(C(V("mVariable")), function(s, i , a, b)
+  mParameter = lpeg.Cf(V("mVariable"), function(s, i , a, b)
     if epnfs.declaration_parameters() == nil then
       return nil
     end
@@ -158,6 +158,7 @@ local m_grammar = epnfs.define( function(_ENV)
       return nil
     end
 
+    print('a: ',util.to_string(a))
     return epnfs.declaration_parameters()[a.value]
   end)
   mVariable = C((mValidIdentifiers + digit + S'^' + S'%')^1)

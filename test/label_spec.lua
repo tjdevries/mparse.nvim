@@ -59,21 +59,40 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     local parsed = epnf.parsestring(m, [[
 ; this shoudn't mess things up
 MyCommentedLabel(arg1,arg2) ; This is a comment
-  q "this will be a mArgumentReference",arg1
+  w "this will be a mArgumentReference",arg1
+  n notParameter
+  w arg2,notParameter
+  q
 ]])
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
     eq(arguments.value, {'arg1', 'arg2'})
     eq(arguments.pos, {start=48, finish=56})
 
     local command = helpers.get_item(parsed, 'id', 'mCommand')
-    eq(command.value, 'q')
+    eq(command.value, 'w')
 
     local s = helpers.get_item(command, 'id', 'mString')
-    eq(s.value, 'this will be a mArgumentReference')
+    eq(s.value, '"this will be a mArgumentReference"')
+    eq(s.pos, {start=84, finish=118})
+
 
     local param = helpers.get_item(command, 'id', 'mParameter')
     eq(param.id, 'mParameter')
     eq(param.value, 'arg1')
     eq(param.pos, {start=120, finish=123})
+  end)
+
+  it('should not think everything is a parameter', function()
+    local parsed = epnf.parsestring(m, [[
+; this shoudn't mess things up
+MyCommentedLabel(arg1,arg2) ; This is a comment
+  n notParameter
+  w arg2,notParameter
+  q
+]])
+    local command = helpers.get_item(parsed, 'id', 'mCommand')
+    eq(command.value, 'n')
+    eq(command, nil)
+
   end)
 end)

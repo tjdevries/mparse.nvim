@@ -1,8 +1,8 @@
 local nvim = vim.api
 
-local epnf = require 'src.token'
-local m_grammar = require('src.grammar').m_grammar
-local util = require 'src.util'
+local epnf = require '../src.token'
+local m_grammar = require('../src.grammar').m_grammar
+local util = require '../src.util'
 
 local src_id = 25832
 
@@ -78,6 +78,8 @@ convert_pos_to_start_finish = function(pos)
 end
 
 apply_highlights = function(buffer)
+  clear_highlights(buffer, 0, -1)
+
   local highlights = get_highlights(buffer)
 
   for k, v in pairs(highlights) do
