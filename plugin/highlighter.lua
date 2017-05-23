@@ -6,6 +6,29 @@ local util = require '../src.util'
 
 local src_id = 25832
 
+local nvim_cache = {}
+
+nvim.clear_cache = function()
+  nvim_cache = {}
+end
+
+local cache_enabled = false
+nvim.call_cache = function(func, arg)
+  if cache_enabled then
+    if nvim_cache[func] == nil then
+      nvim_cache[func] = {}
+    end
+
+    if nvim_cache[func][arg] == nil then
+      nvim_cache[func][arg] = nvim.nvim_call_function(func, arg)
+    end
+
+    return nvim_cache[func][arg]
+  else
+    return nvim.nvim_call_function(func, arg)
+  end
+end
+
 clear_highlights = function(buffer, start, finish)
   nvim.nvim_buf_clear_highlight(buffer, src_id, start, finish)
 end
@@ -25,6 +48,9 @@ get_ast = function(buffer)
 end
 
 get_highlights = function(buffer)
+  -- Clear our caché of where things are located
+  nvim.clear_cache()
+
   local ast = get_ast(buffer)
 
   local highlights = {}
@@ -65,11 +91,11 @@ convert_pos_to_start_finish = function(pos)
   -- TODO: Cache these values, as well as the line2byte values
   -- This should dramatically reduce the number of RPC calls that I need to make
   -- especially considering that so many of the calls occur for items on the same line. 
-  local start_line = nvim.nvim_call_function('byte2line', {s})
-  local finish_line = nvim.nvim_call_function('byte2line', {f})
+  local start_line = nvim.call_cache('byte2line', {s})
+  local finish_line = nvim.call_cache('byte2line', {f})
 
   -- TODO: Figure out what to do if they are on separate lines
-  local start_line_byte = nvim.nvim_call_function('line2byte', {start_line})
+  local start_line_byte = nvim.call_cache('line2byte', {start_line})
   local col_start = s - start_line_byte
   local col_end = f - start_line_byte
 
