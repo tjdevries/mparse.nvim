@@ -123,13 +123,11 @@ local m_grammar = epnfs.define( function(_ENV)
   mBody = (V("mComment") + V("mBodyLine") + V("mWhitespace"))^0
 
   -- TODO: Make a dotted line
-  mBodyLine = V("mWhitespace")^0
-    * V("mCommand")
-    * EOL
+  mBodyLine = V("mCommand") * EOL
 
 
   mWhitespace = whitespace
-  mCommand = V("mWhitespace") * command * V("mWhitespace") * V("mCommandArgs")^0
+  mCommand = V("mWhitespace")^1 * command * V("mWhitespace") * V("mCommandArgs")^0
 
   mCommandSep = comma
   mCommandOperation = commandOperator

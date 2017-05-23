@@ -17,7 +17,7 @@ describe('comment', function()
   end)
 
   it('should accept multiple comments', function()
-    local parsed = epnf.parsestring(m, [[
+    local parsed = epnfs.parsestring(m, [[
 ; comment 1
 ; comment 2
 ;
