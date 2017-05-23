@@ -62,6 +62,9 @@ convert_pos_to_start_finish = function(pos)
   local s = pos.start
   local f = pos.finish
 
+  -- TODO: Cache these values, as well as the line2byte values
+  -- This should dramatically reduce the number of RPC calls that I need to make
+  -- especially considering that so many of the calls occur for items on the same line. 
   local start_line = nvim.nvim_call_function('byte2line', {s})
   local finish_line = nvim.nvim_call_function('byte2line', {f})
 
