@@ -36,17 +36,6 @@ local to_string = function ( tbl )
   end
 end
 
-
-local mark = function(name)
-  return function(...)
-    -- return {name, {...}}
-    return {
-      name=name,
-      ['next']={...},
-    }
-  end
-end
-
 local t_concat = function(t1, t2)
   local t3 = {unpack(t1)}
   local I

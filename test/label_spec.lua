@@ -75,11 +75,12 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     eq(s.value, '"this will be a mArgumentReference"')
     eq(s.pos, {start=84, finish=118})
 
-
-    local param = helpers.get_item(command, 'id', 'mParameter')
-    eq(param.id, 'mParameter')
-    eq(param.value, 'arg1')
-    eq(param.pos, {start=120, finish=123})
+    if grammar.parameters_enabled then
+      local param = helpers.get_item(command, 'id', 'mParameter')
+      eq(param.id, 'mParameter')
+      eq(param.value, 'arg1')
+      eq(param.pos, {start=120, finish=123})
+    end
   end)
 
   it('should not think everything is a parameter', function()
@@ -92,7 +93,14 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 ]])
     local command = helpers.get_item(parsed, 'id', 'mCommand')
     eq(command.value, 'n')
-    eq(command, nil)
 
+    local commandArgs = helpers.get_item(command, 'id', 'mCommandArgs')
+    eq(commandArgs.id, 'mCommandArgs')
+
+    local notParam = helpers.get_item(commandArgs, 'id', 'mVariable')
+    neq(notParam, nil)
+    neq(notParam.id, 'mParameter')
+    eq(notParam.value, 'notParameter')
+    eq(notParam.id, 'mVariable')
   end)
 end)

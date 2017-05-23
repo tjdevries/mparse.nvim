@@ -4,7 +4,13 @@
 execute('luafile ' . expand('<sfile>:h') . '/highlighter.lua')
 
 CPHL mCommand Statement - -
-CPHL mVariable Identifier - -
+CPHL mCommandOperator yellow - -
+CPHL mVariable blue - -
 CPHL mParameter blue - bold
 CPHL mComment Comment - Comment
 CPHL mString String - -
+
+CPHL mPrefixFuncionCall blue - -
+CPHL mFunctionCall yellow - -
+" CPHL mBuiltinFunctionCall
+

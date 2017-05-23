@@ -65,10 +65,31 @@ local command = C(
 -- }}}
 
 -- Function type items
+local check_declaration_parameters = function(...)
+  local args = {...}
+
+  if args == {} then
+    return nil
+  end
+
+  if args.value then
+    if epnfs.declaration_parameters() == nil then
+      return nil
+    end
+
+    if epnfs.declaration_parameters()[args.value] then
+      return args
+    end
+  end
+
+  return nil
+end
+
 
 local commandOperator = S'!'
 
 local mValidIdentifiers = R('AZ', 'az', '09')
+local variableIdentifiers = (mValidIdentifiers + digit + S'^' + S'%')^1
 local nonQuoteAscii = S'.'
   + S'!'
   + S','
@@ -135,9 +156,12 @@ local m_grammar = epnfs.define( function(_ENV)
 
   mCommandArgs = (
     (V("mCommandSep")
+      + V("mFunctionCall")
       + V("mCommandOperator")
       + V("mString")
-      + V("mParameter")
+      -- TODO: Add this with back captures or something.
+      -- Not sure how to get it to work correctly
+      -- + V("mParameter")
       + V("mVariable")
       + mAny)
     - EOL)
@@ -145,23 +169,12 @@ local m_grammar = epnfs.define( function(_ENV)
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
-  mParameter = lpeg.Cf(V("mVariable"), function(s, i , a, b)
-    if epnfs.declaration_parameters() == nil then
-      return nil
-    end
+  mParameter = Cb('closed_paren') * P(variableIdentifiers)
+  mVariable = C(variableIdentifiers)
 
-    if a == nil then
-      return nil
-    end
-
-    if a.value == nil then
-      return nil
-    end
-
-    print('a: ',util.to_string(a))
-    return epnfs.declaration_parameters()[a.value]
-  end)
-  mVariable = C((mValidIdentifiers + digit + S'^' + S'%')^1)
+  -- mPrefixFunctionCall = C(P'$$' + P'$')
+  -- mFunctionCall = V("mPrefixFunctionCall") * C(variableIdentifiers) * #S'('
+  mFunctionCall = C((P'$$' + P'$') * variableIdentifiers * #S'(')
 
   -- Extra
   mDigit = digit
@@ -170,5 +183,8 @@ local m_grammar = epnfs.define( function(_ENV)
 end )
 
 return {
-  m_grammar=m_grammar
+  m_grammar=m_grammar,
+
+  -- If parameter finding enabled
+  parameters_enabled=false,
 }
