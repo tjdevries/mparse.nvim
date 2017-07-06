@@ -99,6 +99,7 @@ local nonQuoteAscii = S'.'
   + S'('
   + S')'
   + S'*'
+  + S'='
 local mValidString = mValidIdentifiers
   + whitespace
   + nonQuoteAscii
