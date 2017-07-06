@@ -1,5 +1,5 @@
 local assert = require('luassert')
-local util = require 'src.util'
+local util = require('mparse.util')
 
 local eq = function(exp, act)
   return assert.are.same(exp, act)

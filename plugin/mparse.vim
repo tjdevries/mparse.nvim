@@ -6,15 +6,28 @@ function! MHighlight() abort
 endfunction
 
 CPHL mCommand Statement - -
+CPHL mDoCommand mCommand - -
+CPHL mWriteCommand mCommand - -
+CPHL mNewCommand mCommand - -
+CPHL mNormalCommand mCommand - -
+
 CPHL mCommandOperator yellow - -
+
 CPHL mVariable blue - -
 CPHL mParameter blue - bold
 CPHL mComment Comment - Comment
 CPHL mString String - -
 CPHL mDigit Number - -
-CPHL mLabelName Function - -
+CPHL mLabelName purple - -
 
 CPHL mPrefixFuncionCall blue - -
-CPHL mFunctionCall yellow - -
+
+CPHL mFunctionCall orange - -
+CPHL mDoFunctionCall mFunctionCall,dark - -
+
+" CPHL mError Error - -
+CPHL mCapturedError white red underline
 " CPHL mBuiltinFunctionCall
 
+" Operators
+CPHL mPostConditionalSeparator Operator - -

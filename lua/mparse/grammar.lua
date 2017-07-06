@@ -10,61 +10,74 @@ local util = require('mparse.util')
 local P, R, S, B, C, Cc, Ct, Cp, Cg, Cb, V =
   lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.Cb, lpeg.V
 
-local whitespace = S' \t\v\n\f'^1
+-- Standard definitions {{{
+local whitespace = patterns.set(
+  ' ',
+  '\t',
+  '\v',
+  '\n',
+  '\f'
+)
+local optionalWhitespace = patterns.one_or_no(whitespace)
 
-local comma = S','
-local digit = R'09'
-local letter = R('az', 'AZ') + P'_'
-local alphanum = letter + digit
+local comma = patterns.literal(',')
+local digit = patterns.range('0', '9')
+local letter = patterns.branch(
+  patterns.range('a', 'z'),
+  patterns.range('A', 'Z')
+)
+local alphanum = patterns.branch(letter, digit)
 
--- standard commands {{{
-local command = C(
-  P"d" +
-  P"do" +
-  P"g" +
-  P"goto" +
-  P"c" +
-  P"close" +
-  P"e" +
-  P"else" +
-  P"f" +
-  P"for" +
-  P"h" +
-  P"halt" +
-  P"hang" +
-  P"i" +
-  P"if" +
-  P"k" +
-  P"kill" +
-  P"l" +
-  P"lock" +
-  P"m" +
-  P"merge" +
-  P"n" +
-  P"new" +
-  P"q" +
-  P"quit" +
-  P"r" +
-  P"read" +
-  P"s" +
-  P"set" +
-  P"tc" +
-  P"tcommit" +
-  P"tre" +
-  P"trestart" +
-  P"tro" +
-  P"trollback" +
-  P"ts" +
-  P"tstart" +
-  P"u" +
-  P"use" +
-  P"w" +
-  P"write" +
-  P"x" +
-  P"xecute") * #whitespace
+local startOfLine = patterns.branch(
+  patterns.look_behind(patterns.literal('\n')),
+  patterns.look_behind(patterns.literal(''))
+)
 -- }}}
+-- standard commands {{{
+local doCommand = patterns.command_helper("do")
+local quitCommand = patterns.command_helper("quit")
+local mergeCommand = patterns.command_helper("merge")
+local ifCommand = patterns.command_helper("if")
+local elseCommand = patterns.command_helper("else")
+local xecuteCommand = patterns.command_helper("xecute")
+local forCommand = patterns.command_helper("for")
+local newCommand = patterns.command_helper("new")
+local writeCommand = patterns.command_helper("write")
 
--- Function type items
+local normalCommands = C(patterns.branch(
+  quitCommand,
+  mergeCommand,
+  ifCommand,
+  elseCommand,
+  xecuteCommand,
+  forCommand,
+  P"g",
+  P"goto",
+  P"c",
+  P"close",
+  P"h",
+  P"halt",
+  P"hang",
+  P"k",
+  P"kill",
+  P"l",
+  P"lock",
+  P"r",
+  P"read",
+  P"s",
+  P"set",
+  P"tc",
+  P"tcommit",
+  P"tre",
+  P"trestart",
+  P"tro",
+  P"trollback",
+  P"ts",
+  P"tstart",
+  P"u",
+  P"use"))
+-- }}}
+-- Function type items {{{
 local check_declaration_parameters = function(...)
   local args = {...}
 
@@ -84,12 +97,27 @@ local check_declaration_parameters = function(...)
 
   return nil
 end
+-- }}}
 
+local commandOperator = patterns.literal('!')
+local optionalTagSeparator = patterns.one_or_no(patterns.literal('^'))
 
-local commandOperator = S'!'
+local namedIdentifiers = patterns.concat(
+  patterns.one_or_no(patterns.literal('%')),
+  patterns.one_or_more(alphanum)
+)
 
-local mValidIdentifiers = R('AZ', 'az', '09')
-local variableIdentifiers = (mValidIdentifiers + digit + S'^' + S'%')^1
+local calledFunctionIdentifiers = patterns.concat(
+  namedIdentifiers,
+  patterns.one_or_no(
+    patterns.concat(
+      optionalTagSeparator,
+      namedIdentifiers
+    )
+  ),
+  #S'('
+)
+
 local nonQuoteAscii = S'.'
   + S'!'
   + S','
@@ -100,11 +128,16 @@ local nonQuoteAscii = S'.'
   + S')'
   + S'*'
   + S'='
-local mValidString = mValidIdentifiers
-  + whitespace
-  + nonQuoteAscii
+  + S'_'
+  + S'\''
 
-local mAny = mValidString +  S'"'
+local stringCharacter = patterns.branch(
+  alphanum,
+  whitespace,
+  nonQuoteAscii
+)
+
+local anyCharacter = stringCharacter +  S'"'
 
 -- Optional end of line matching
 local EOL = P"\r"^-1 * P"\n"
@@ -120,23 +153,31 @@ local m_grammar = epnfs.define( function(_ENV)
     + V("mLabel")
     + V("mCommand")
     + V("mString")
-    + V("mWhitespace")
+    + whitespace
     + EOL
     + 1
   )^0
 
   mComment = C(P';' * helper.untilChars('\n'))
 
-  -- lpeg.match(lpeg.S('"') * lpeg.C(lpeg.R("az")^0) * lpeg.S('"'), '"hi"')
-  mString = C(S'"' * mValidString^0 * S'"')
+  mString = C(patterns.concat(
+    patterns.literal('"'),
+    stringCharacter^0,
+    patterns.literal('"')
+  ))
 
-  mLabel = V("mLabelName")
-    * V("mArgumentDeclaration")
-    * V("mBody")
+  mLabel = patterns.concat(
+    startOfLine,
+    V("mLabelName"),
+    -- patterns.one_or_no(V("mArgumentDeclaration")),
+    V("mArgumentDeclaration"),
+    V("mBody")
+  )
 
-  mLabelName = C((P'%' + R'AZ') * R('AZ', 'az', '09')^0)
+  mLabelName = C(namedIdentifiers)
 
-  mArgument = R('AZ', 'az', '09')^1
+  mArgument = patterns.one_or_more(alphanum)
+
   -- I'm splitting this in `make_ast_node`, I'd like to not do that
   mArgumentDeclaration = patterns.closed('(', ')', 'closed_paren')
     * patterns.listOf(Cb('closed_paren'), ',')
@@ -145,18 +186,92 @@ local m_grammar = epnfs.define( function(_ENV)
   mBody = (V("mComment") + V("mBodyLine"))^0
 
   -- TODO: Make a dotted line
-  mBodyLine = V("mWhitespace")^-1 * V("mCommand") * EOL
+  mBodyLine = optionalWhitespace * V("mCommand") * EOL
 
 
-  mWhitespace = whitespace
-  mCommand = command * V("mWhitespace") * V("mCommandArgs")^0
+  mCommand = patterns.branch(
+    V("mDoCommand"),
+    V("mWriteCommand"),
+    V("mNewCommand"),
+    V("mNormalCommand")
+  )
 
+  -- Do Commands {{{
+  mDoCommand = patterns.concat(
+    C(doCommand),
+    patterns.one_or_no(V("mPostConditional")),
+    whitespace,
+    V("mDoCommandArgs")
+  )
+
+  mDoCommandArgs = V("mDoFunctionCall")
+  mDoFunctionCall = C(calledFunctionIdentifiers)
+  -- }}}
+  -- Write Commands {{{
+  mWriteCommand = patterns.concat(
+    C(writeCommand),
+    patterns.one_or_no(V("mPostConditional")),
+    whitespace,
+    V("mCommandArgs")
+  )
+  -- }}}
+  -- New Commands {{{
+  mNewCommand = patterns.concat(
+    C(newCommand),
+    patterns.one_or_no(V("mPostConditional")),
+    whitespace,
+    V("mNewCommandArgs")
+  )
+
+  mNewCommandArgs = patterns.concat(
+    patterns.one_or_more(
+      patterns.branch(
+        V("mVariable"),
+        V("mCommandSep")
+      )
+    ),
+    V("mCapturedError"),
+    EOL
+  )
+
+  -- }}}
+  -- {{{ Normal Command
+  mNormalCommand = patterns.concat(
+    C(normalCommands),
+    patterns.one_or_no(V("mPostConditional")),
+    whitespace,
+    patterns.one_or_no(V("mCommandArgs"))
+  )
+  -- }}}
+  -- Post Conditionals {{{
+  mPostConditionalSeparator = C(patterns.literal(':'))
+  -- TODO: Add =,+, etc.
+  mPostConditionalExpression = patterns.branch(
+    V("mFunctionCall"),
+    patterns.literal('='),
+    V("mVariable")
+  )
+
+  -- TODO: Match the parenths
+  mPostConditional = patterns.concat(
+    V("mPostConditionalSeparator"),
+    C(
+      patterns.concat(
+        patterns.one_or_no(patterns.literal('(')),
+        patterns.any_amount(V("mPostConditionalExpression")),
+        patterns.one_or_no(patterns.literal(')')),
+        #whitespace
+      )
+    )
+  )
+  -- }}}
+  -- All Commands {{{
   mCommandSep = C(comma)
-  mCommandOperation = commandOperator
-  mCommandOperator = V("mDigit") * V("mCommandOperation")
+  mCommandOperator = V("mDigit") * C(commandOperator)
+  -- }}}
 
   mCommandArgs = (
-    (V("mCommandSep")
+    V("mCommandSep")
       + V("mFunctionCall")
       + V("mCommandOperator")
       -- TODO: Some of these digits are not getting captured correctly
@@ -166,23 +281,30 @@ local m_grammar = epnfs.define( function(_ENV)
       -- Not sure how to get it to work correctly
       -- + V("mParameter")
       + V("mVariable")
-      + mAny)
+      + anyCharacter
     - EOL)
+
 
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
-  mParameter = Cb('closed_paren') * P(variableIdentifiers)
-  mVariable = C(variableIdentifiers)
+  mParameter = Cb('closed_paren') * P(namedIdentifiers)
+  mVariable = C(namedIdentifiers)
 
-  -- mPrefixFunctionCall = C(P'$$' + P'$')
-  -- mFunctionCall = V("mPrefixFunctionCall") * C(variableIdentifiers) * #S'('
-  mFunctionCall = C((P'$$' + P'$') * variableIdentifiers * #S'(')
+  mFunctionCall = C(
+    patterns.concat(
+      patterns.branch(
+        (P'$$' + P'$')
+      ),
+      calledFunctionIdentifiers
+    )
+  )
 
   -- Extra
   mDigit = C(digit^1)
 
-  mError = P(1)
+  mError = (1 - EOL) ^ 1
+  mCapturedError = C(patterns.one_or_no(V("mError")))
 end )
 
 return {

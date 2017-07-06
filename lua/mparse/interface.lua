@@ -1,4 +1,6 @@
+local epnf = require('mparse.token')
 local m_grammar = require('mparse.grammar').m_grammar
+local util = require('mparse.util')
 
 -- public interface  {{{
 -- Get the items
@@ -9,6 +11,6 @@ fh:close()
 
 -- Print the items
 print(input, '-->')
-print(util.to_string(m_grammar:match(input)))
+print(util.to_string(epnf.parsestring(m_grammar, input)))
 -- }}}
 

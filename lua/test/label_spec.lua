@@ -1,8 +1,6 @@
-local lpeg = require('lpeg')
+local epnf = require('mparse.token')
 
-local epnf = require('src.token')
-
-local grammar = require('src.grammar')
+local grammar = require('mparse.grammar')
 local m = grammar.m_grammar
 
 local helpers = require('test.helpers')
@@ -28,8 +26,8 @@ MyLabel(arg1,arg2) ; This is a comment
 
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
-    eq(labelName.pos, {start=1, finish=7})
     eq(labelName.value, "MyLabel")
+    eq(labelName.pos, {start=1, finish=7})
 
     local commentItem = helpers.get_item(parsed, 'id', 'mComment')
     eq(commentItem.value, '; This is a comment')
@@ -51,8 +49,8 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
-    eq(labelName.pos, {start=32, finish=47})
     eq(labelName.value, "MyCommentedLabel")
+    eq(labelName.pos, {start=32, finish=47})
   end)
 
   it('should find the arguments inside of the label', function()
@@ -68,7 +66,8 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     eq(arguments.value, {'arg1', 'arg2'})
     eq(arguments.pos, {start=48, finish=56})
 
-    local command = helpers.get_item(parsed, 'id', 'mCommand')
+    local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
+    neq(nil, command)
     eq(command.value, 'w')
 
     local s = helpers.get_item(command, 'id', 'mString')
@@ -91,16 +90,88 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
   w arg2,notParameter
   q
 ]])
-    local command = helpers.get_item(parsed, 'id', 'mCommand')
+    local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+    neq(nil, command)
     eq(command.value, 'n')
 
-    local commandArgs = helpers.get_item(command, 'id', 'mCommandArgs')
-    eq(commandArgs.id, 'mCommandArgs')
+    local commandArgs = helpers.get_item(command, 'id', 'mNewCommandArgs')
+    eq(commandArgs.id, 'mNewCommandArgs')
 
     local notParam = helpers.get_item(commandArgs, 'id', 'mVariable')
     neq(notParam, nil)
     neq(notParam.id, 'mParameter')
     eq(notParam.value, 'notParameter')
     eq(notParam.id, 'mVariable')
+  end)
+
+  it('should get lowercased labels', function()
+    local parsed = epnf.parsestring(m, [[
+; doesn't matter
+getLowerCase(arg) ; comment
+  n yup
+  s yup=1
+  w arg,yup
+  q yup
+]])
+    local label = helpers.get_item(parsed, 'id', 'mLabelName')
+    eq(label.value, 'getLowerCase')
+  end)
+
+  it('should detect labels without arguments', function()
+    local parsed = epnf.parsestring(m, [[
+; just a comment
+testLabel ; comment
+  n just,do,stuff,here
+  w just,do,stuff,here
+]])
+    local label = helpers.get_item(parsed, 'id', 'mLabelName')
+    -- neq(nil, label)
+    -- eq(label.value, 'testLabel')
+  end)
+
+  describe('command detection', function()
+    describe('do command', function()
+      it('should notice function calls for do functions without $$', function()
+        local parsed = epnf.parsestring(m, [[
+; comment
+testLabel ; comment
+  d main^TESTTAG()
+]])
+
+        local do_func = helpers.get_item(parsed, 'id', 'mDoFunctionCall')
+        neq(nil, do_func)
+      end)
+    end)
+
+    describe('new command', function()
+      it('should allow for defining variables', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n myVar,otherVar
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local var = helpers.get_item(command, 'id', 'mVariable')
+        neq(nil, var)
+        eq(var.value, 'myVar')
+      end)
+
+      it('should show an error for calling functions', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n myVar,$$errorFunction()
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local err = helpers.get_item(command, 'id', 'mCapturedError')
+        neq(nil, err)
+        eq('$$errorFunction()', err.value)
+        eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
+      end)
+    end)
   end)
 end)

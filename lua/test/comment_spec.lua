@@ -1,8 +1,8 @@
 local lpeg = require('lpeg')
 
-local epnfs = require('src.token')
+local epnfs = require('mparse.token')
 
-local grammar = require('src.grammar')
+local grammar = require('mparse.grammar')
 local m = grammar.m_grammar
 
 local helpers = require('test.helpers')
