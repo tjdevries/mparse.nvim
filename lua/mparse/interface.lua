@@ -1,4 +1,4 @@
-local m_grammar = require('src.grammar').m_grammar
+local m_grammar = require('mparse.grammar').m_grammar
 
 -- public interface  {{{
 -- Get the items

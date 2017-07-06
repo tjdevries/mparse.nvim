@@ -1,13 +1,8 @@
 " this is all there is
 " another line
 
-try
-    execute('luafile ' . expand('<sfile>:h') . '/highlighter.lua')
-catch
-endtry
-
 function! MHighlight() abort
-    call luaeval('require("mparse.init")')
+    call luaeval('require("mparse.init").highlight()')
 endfunction
 
 CPHL mCommand Statement - -

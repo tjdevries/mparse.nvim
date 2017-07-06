@@ -1,10 +1,10 @@
-local lpeg = require 'lpeg'
-local re = require 're'
+local lpeg = require('lpeg')
+local re = require('re')
 
-local epnfs = require 'src.token'
-local helper = require 'src.helper'
-local patterns = require 'src.patterns'
-local util = require 'src.util'
+local epnfs = require('mparse.token')
+local helper = require('mparse.helper')
+local patterns = require('mparse.patterns')
+local util = require('mparse.util')
 
 
 local P, R, S, B, C, Cc, Ct, Cp, Cg, Cb, V =

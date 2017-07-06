@@ -3,7 +3,7 @@
 
 local L = require( "lpeg" )
 
-local util = require('src.util')
+local util = require('mparse.util')
 
 local assert = assert
 local string, io = assert( string ), assert( io )
