@@ -66,6 +66,16 @@ patterns.look_behind = lpeg.B
 patterns.look_ahead = function(v) return #v end
 patterns.neg_look_ahead = function(v) return -v end
 patterns.neg_look_behind = function(v) return -patterns.look_behind(v) end
+patterns.optional_surrounding = function(start, finish, v)
+  return patterns.branch(
+    patterns.concat(
+      start,
+      v,
+      finish
+    ),
+    v
+  )
+end
 
 -- command_helper("do") -> "do", "DO", "Do", "d", "D",
 patterns.command_helper = function(s)

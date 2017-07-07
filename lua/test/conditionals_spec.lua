@@ -24,9 +24,6 @@ myFunction(arg) ;
   q 2
 ]])
     local post_conditional = helpers.get_item(parsed, 'id', 'mPostConditional')
-    print()
-    print(require('mparse.util').to_string(post_conditional))
-    print()
     neq(nil, post_conditional)
 
   end)

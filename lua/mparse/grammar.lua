@@ -1,6 +1,7 @@
 -- TODO:
 --  Indirection, @, @...@
 
+-- Imports {{{
 local lpeg = require('lpeg')
 local re = require('re')
 
@@ -12,7 +13,7 @@ local util = require('mparse.util')
 
 local P, R, S, B, C, Cc, Ct, Cp, Cg, Cb, V =
   lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.Cb, lpeg.V
-
+-- }}}
 -- Standard definitions {{{
 local whitespace = patterns.set(
   ' ',
@@ -207,47 +208,56 @@ local m_grammar = epnfs.define( function(_ENV)
   mBlock = Ct(
     V("mComment")
     + V("mLabel")
-    + V("mCommand")
-    + V("mString")
     + whitespace
     + EOL
     + 1
   )^0
 
-  mComment = patterns.concat(
-    #optionalWhitespace,
-    C(P';' * helper.untilChars('\n'))
-  )
-
-  mString = C(patterns.concat(
+  mComment = C(P';' * helper.untilChars('\n'))
+  mString = C(patterns.concat( -- {{{
     patterns.literal('"'),
     stringCharacter^0,
     patterns.literal('"')
-  ))
-
+  )) -- }}}
+  -- mLabel* {{{
+  mLabelName = C(namedIdentifiers)
   mLabel = patterns.concat(
     startOfLine,
     V("mLabelName"),
-    -- patterns.one_or_no(V("mArgumentDeclaration")),
-    V("mArgumentDeclaration"),
+    patterns.one_or_no(V("mArgumentDeclaration")),
+    optionalWhitespace,
     V("mBody")
   )
+  -- }}}
+  -- mArgument* {{{
+  mSingleArgument = C(patterns.one_or_more(alphanum))
 
-  mLabelName = C(namedIdentifiers)
-
-  mArgument = patterns.one_or_more(alphanum)
-
-  -- I'm splitting this in `make_ast_node`, I'd like to not do that
-  mArgumentDeclaration = patterns.closed('(', ')', 'closed_paren')
-    * patterns.listOf(Cb('closed_paren'), ',')
-
+  mArgumentDeclaration = patterns.concat(
+    left_parenth,
+    C(patterns.one_or_no(
+      patterns.concat(
+        V("mSingleArgument"),
+        patterns.concat(commma, V("mSingleArgument"))
+      )
+    )),
+    right_parenth,
+    whitespace
+  )
+  -- }}}
+  -- mBody* {{{
   -- Group for body
-  mBody = (V("mComment") + V("mBodyLine"))^0
+  mBody = patterns.one_or_more(
+    patterns.branch(
+      V("mComment"),
+      V("mBodyLine"),
+      whitespace
+    )
+  )
 
   -- TODO: Make a dotted line
   mBodyLine = optionalWhitespace * V("mCommand") * EOL
-
-  -- M Arithmetic Expressions {{{
+  -- }}}
+  -- M Expressions {{{
   mArithmeticOperators = C(arithmeticOperators)
 
   mArithmeticExpression = patterns.one_or_more(
@@ -259,17 +269,23 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mFunctionCall")
     )
   )
+
+  mInnerRelationalExpression = patterns.concat(
+    V("mArithmeticExpression"),
+    relationalOperators,
+    V("mArithmeticExpression")
+  )
+  mRelationalExpression = patterns.optional_surrounding(
+    left_parenth, right_parenth, V("mInnerRelationalExpression")
+  )
   -- }}}
-
-
-  mCommand = patterns.branch(
+  mCommand = patterns.branch( -- {{{
     V("mDoCommand"),
     V("mWriteCommand"),
     V("mNewCommand"),
     V("mSetCommand"),
     V("mNormalCommand")
-  )
-
+  ) -- }}}
   -- Do Commands {{{
   mDoCommand = patterns.concat(
     C(doCommand),
@@ -358,23 +374,20 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- Post Conditionals {{{
   mPostConditionalSeparator = C(patterns.literal(':'))
-  -- TODO: Add =,+, etc.
-  mPostConditionalExpression = patterns.concat(
-    patterns.one_or_no(left_parenth),
-    patterns.branch(
-      V("mFunctionCall"),
-      patterns.literal('='),
-      V("mVariable")
-    ),
-    patterns.one_or_no(right_parenth)
-  )
+  mPostConditionalExpression = V("mRelationalExpression")
 
   -- TODO: Match the parenths
   mPostConditional = patterns.concat(
     V("mPostConditionalSeparator"),
     C(
       patterns.concat(
-        patterns.one_or_more(V("mPostConditionalExpression")),
+        V("mPostConditionalExpression"),
+        patterns.any_amount(
+          patterns.concat(
+            patterns.branch(logicalOperators, comma),
+            V("mPostConditionalExpression")
+          )
+        ),
         #whitespace
       )
     )

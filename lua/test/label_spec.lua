@@ -62,7 +62,11 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
   w arg2,notParameter
   q
 ]])
+    print()
+    print(require('mparse.util').to_string(parsed))
+    print()
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
+    neq(nil, arguments)
     eq(arguments.value, {'arg1', 'arg2'})
     eq(arguments.pos, {start=48, finish=56})
 
@@ -220,6 +224,7 @@ testLabel ; comment
   q
 ]])
         local command = helpers.get_item(parsed, 'id', 'mSetCommand')
+        neq(nil, command)
         neq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
     end)

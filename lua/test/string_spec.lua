@@ -10,26 +10,21 @@ local eq = helpers.eq
 
 describe('string', function()
   it('should accept easy strings', function()
-    eq('mString', helpers.get_first_item(epnfs.parsestring(m, [[
-"this is a string"
-]]
-      )).id
-    )
+    eq('mString', epnfs.parsestring(m.mString, [["this is a string"]]).id)
   end)
 
   it('should accept special characters', function()
-    eq('mString', helpers.get_first_item(epnfs.parsestring(m, [[
-"this is a stright with ! # and others."
-]]
-      )).id
-    )
+    eq('mString', epnfs.parsestring(m.mString, [["this is a stright with ! # and others."]]).id)
+  end)
+
+  it('should accept single quotes', function()
+    eq('mString', epnfs.parsestring(m.mString, [["this is a stright with ' in it."]]).id)
   end)
 
   it('should accept _ characters', function()
-    eq('mString', helpers.get_first_item(epnfs.parsestring(m, [[
-"this a string with _ in it!."
-]]
-      )).id
+    eq(
+      'mString',
+      epnfs.parsestring(m.mString, [["this a string with _ in it!."]]).id
     )
   end)
 end)

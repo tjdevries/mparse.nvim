@@ -104,17 +104,6 @@ local function make_ast_node( id, pos, t )
     finish = pos + #t.value - 1
   end
 
-  -- Argument Declaration items here
-  if t.closed_paren then
-    -- TODO: Move this to the parser, not here.
-    -- Place the arguments in the value location,
-    -- split into a table
-    t.value = t[1]:split(',')
-    declaration_parameters = t.value
-
-    finish = pos + #t[1] - 1
-  end
-
   t.pos = {
     start=pos,
     finish=finish,
