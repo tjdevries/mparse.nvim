@@ -173,5 +173,55 @@ testLabel ; comment
         eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
       end)
     end)
+
+    describe('set command', function()
+      it('should be found when using the set command', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  s myVar=1
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mSetCommand')
+        neq(nil, command)
+
+        eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
+      end)
+
+      it('should be found when using the set command and adding a number', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  s myVar=1+2
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mSetCommand')
+        neq(nil, command)
+        eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
+      end)
+
+      it('should be found when using the set command and adding a function', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  s myVar=1+$$helloWorld()
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mSetCommand')
+        neq(nil, command)
+        neq(nil, helpers.get_item(command, 'id', 'mFunctionCall'))
+        neq(nil, helpers.get_item(command, 'id', 'mDoFunctionCall'))
+        neq(nil, helpers.get_item(command, 'id', 'mDigit'))
+
+        eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
+      end)
+
+      it('should find errors when using set command incorrectly', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  s $$myVar()=1+$$helloWorld()
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mSetCommand')
+        neq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
+      end)
+    end)
   end)
 end)

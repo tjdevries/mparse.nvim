@@ -14,8 +14,20 @@ myFunction(arg) ;
 ]])
     local post_conditional = helpers.get_item(parsed, 'id', 'mPostConditional')
     neq(nil, post_conditional)
+  end)
+
+  it('should detect until whitespace', function()
+    local parsed = epnf.parsestring(m, [[
+myFunction(arg) ;
+  n testVar
+  d:(arg=1)!(arg="") myFunction(testVar)
+  q 2
+]])
+    local post_conditional = helpers.get_item(parsed, 'id', 'mPostConditional')
     print()
     print(require('mparse.util').to_string(post_conditional))
     print()
+    neq(nil, post_conditional)
+
   end)
 end)

@@ -10,6 +10,7 @@ CPHL mDoCommand mCommand - -
 CPHL mWriteCommand mCommand - -
 CPHL mNewCommand mCommand - -
 CPHL mNormalCommand mCommand - -
+CPHL mSetCommand mCommand - -
 
 CPHL mCommandOperator yellow - -
 
