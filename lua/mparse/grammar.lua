@@ -2,7 +2,8 @@
 --  Indirection, @, @...@
 
 -- Imports {{{
-local lpeg = require('lpeg')
+-- local lpeg = require('lpeg')
+local lpeg = require('lulpeg.lulpeg')
 local re = require('re')
 
 local epnfs = require('mparse.token')

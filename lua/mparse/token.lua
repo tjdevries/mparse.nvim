@@ -1,7 +1,8 @@
 -- thanks to
 -- github.com epnfs.lua
 
-local L = require( "lpeg" )
+-- local L = require( "lpeg" )
+local L = require('lulpeg.lulpeg')
 
 local util = require('mparse.util')
 

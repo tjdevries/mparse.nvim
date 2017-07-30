@@ -1,4 +1,5 @@
-local lpeg = require 'lpeg'
+-- local lpeg = require('lpeg')
+local lpeg = require('lulpeg.lulpeg')
 
 local P, R, S, B, C, Cc, Ct, Cp, Cg, V =
   lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.V
