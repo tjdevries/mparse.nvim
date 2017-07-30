@@ -19,7 +19,6 @@ local whitespace = patterns.set(
   ' ',
   '\t',
   '\v',
-  '\n',
   '\f'
 )
 local optionalWhitespace = patterns.one_or_no(whitespace)
@@ -190,8 +189,11 @@ local stringCharacter = patterns.branch(
 local anyCharacter = stringCharacter +  S'"'
 -- }}}
 -- {{{ Line and File Identifiers
--- Optional end of line matching
-local EOL = P"\r"^-1 * P"\n"
+-- Optional end of line matching or end of string (which is kind of like end of line :) )
+local EOL = patterns.branch(
+  P"\r"^-1 * P"\n",
+  -P(1)
+)
 
 local startOfLine = patterns.branch(
   patterns.look_behind(patterns.literal('\n')),
@@ -199,58 +201,72 @@ local startOfLine = patterns.branch(
 )
 
 -- }}}
+-- M grammar, non-recursive and testable items
+
 -- ordered choice of all tokens and last-resort error which consumes one character
 local m_grammar = epnfs.define( function(_ENV)
 
   START "mFile"
 
-  mFile = V("mBlock") * (EOL^-1) + Ct("")
-  mBlock = Ct(
-    V("mComment")
-    + V("mLabel")
-    + whitespace
-    + EOL
-    + 1
-  )^0
-
-  mComment = C(P';' * helper.untilChars('\n'))
+  -- Basic Definitions {{{
+  -- {{{ mDigit
+  mDigit = C(digit^1)
+  -- }}}
+  mComment = C( -- {{{
+    patterns.concat(
+      patterns.literal(';'),
+      patterns.any_amount(anyCharacter),
+      #EOL
+    )
+  ) -- }}}
   mString = C(patterns.concat( -- {{{
     patterns.literal('"'),
     stringCharacter^0,
     patterns.literal('"')
   )) -- }}}
+  -- }}}
+
+  mFile = V("mBlock") * (EOL^-1) + Ct("")
+  mBlock = patterns.any_amount(
+    Ct(
+      patterns.branch(
+        V("mComment"),
+        V("mLabel")
+      )
+    )
+  )
+
   -- mLabel* {{{
   mLabelName = C(namedIdentifiers)
   mLabel = patterns.concat(
     startOfLine,
     V("mLabelName"),
     patterns.one_or_no(V("mArgumentDeclaration")),
-    optionalWhitespace,
+    whitespace,
     V("mBody")
   )
   -- }}}
   -- mArgument* {{{
-  mSingleArgument = C(patterns.one_or_more(alphanum))
+  mFunctionArgument = C(patterns.one_or_more(alphanum))
 
   mArgumentDeclaration = patterns.concat(
     left_parenth,
     C(patterns.one_or_no(
       patterns.concat(
-        V("mSingleArgument"),
-        patterns.concat(commma, V("mSingleArgument"))
+        V("mFunctionArgument"),
+        patterns.concat(commma, V("mFunctionArgument"))
       )
     )),
     right_parenth,
-    whitespace
+    #whitespace
   )
   -- }}}
   -- mBody* {{{
   -- Group for body
   mBody = patterns.one_or_more(
     patterns.branch(
-      V("mComment"),
       V("mBodyLine"),
-      whitespace
+      V("mComment")
     )
   )
 
@@ -451,7 +467,6 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   -- Extra
-  mDigit = C(digit^1)
 
   mError = (1 - EOL) ^ 1
   mCapturedError = C(patterns.one_or_no(V("mError")))

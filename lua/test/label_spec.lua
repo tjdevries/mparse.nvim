@@ -7,35 +7,6 @@ local helpers = require('test.helpers')
 local eq, neq = helpers.eq, helpers.neq
 
 describe('mLabel', function()
-  it('should not return anything for non labels', function()
-    neq('mLabel', helpers.get_first_item(epnf.parsestring(m, [[
-; not a label
-]]))
-    )
-  end)
-
-  it('should return the name of the label', function()
-    local parsed = epnf.parsestring(m, [[
-MyLabel(arg1,arg2) ; This is a comment
-  q "final"
-]])
-    local label = helpers.get_item(parsed, 'id', 'mLabel')
-    neq(label, nil)
-    eq(label.id, "mLabel")
-    eq(label.value, nil)
-
-    local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
-    eq(labelName.id, "mLabelName")
-    eq(labelName.value, "MyLabel")
-    eq(labelName.pos, {start=1, finish=7})
-
-    local commentItem = helpers.get_item(parsed, 'id', 'mComment')
-    eq(commentItem.value, '; This is a comment')
-    eq(commentItem.pos, {start=20, finish=38})
-
-    -- eq(parsed[3], "...")
-  end)
-
   it('should return then ast even with comments before it', function()
     local parsed = epnf.parsestring(m, [[
 ; this shoudn't mess things up
@@ -62,9 +33,6 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
   w arg2,notParameter
   q
 ]])
-    print()
-    print(require('mparse.util').to_string(parsed))
-    print()
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
     neq(nil, arguments)
     eq(arguments.value, {'arg1', 'arg2'})
