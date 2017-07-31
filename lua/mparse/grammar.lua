@@ -1,28 +1,25 @@
 -- TODO:
+-- Grammarwise:
 --  Indirection, @, @...@
+--
+-- Programming-wise:
+--  Use lpeg whenever available, otherwise lulpeg.
 
 -- Imports {{{
--- local lpeg = require('lpeg')
-local lpeg = require('lulpeg.lulpeg')
-local re = require('re')
-
 local epnfs = require('mparse.token')
-local helper = require('mparse.helper')
 local patterns = require('mparse.patterns')
-local util = require('mparse.util')
 
+local V = patterns.V
 
-local P, R, S, B, C, Cc, Ct, Cp, Cg, Cb, V =
-  lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.Cb, lpeg.V
 -- }}}
 -- Standard definitions {{{
+local single_space = patterns.literal(' ')
 local whitespace = patterns.set(
   ' ',
   '\t',
   '\v',
   '\f'
 )
-local optionalWhitespace = patterns.one_or_no(whitespace)
 
 local left_parenth = patterns.literal('(')
 local right_parenth = patterns.literal(')')
@@ -48,57 +45,39 @@ local newCommand = patterns.command_helper("new")
 local writeCommand = patterns.command_helper("write")
 local setCommand = patterns.command_helper("set")
 
-local normalCommands = C(patterns.branch(
-  quitCommand,
-  mergeCommand,
-  ifCommand,
-  elseCommand,
-  xecuteCommand,
-  forCommand,
-  P"g",
-  P"goto",
-  P"c",
-  P"close",
-  P"h",
-  P"halt",
-  P"hang",
-  P"k",
-  P"kill",
-  P"l",
-  P"lock",
-  P"r",
-  P"read",
-  P"tc",
-  P"tcommit",
-  P"tre",
-  P"trestart",
-  P"tro",
-  P"trollback",
-  P"ts",
-  P"tstart",
-  P"u",
-  P"use"))
--- }}}
--- Function type items {{{
-local check_declaration_parameters = function(...)
-  local args = {...}
-
-  if args == {} then
-    return nil
-  end
-
-  if args.value then
-    if epnfs.declaration_parameters() == nil then
-      return nil
-    end
-
-    if epnfs.declaration_parameters()[args.value] then
-      return args
-    end
-  end
-
-  return nil
-end
+local normalCommands = patterns.capture(
+  patterns.branch(
+    quitCommand,
+    mergeCommand,
+    ifCommand,
+    elseCommand,
+    xecuteCommand,
+    forCommand,
+    patterns.literal("g"),
+    patterns.literal("goto"),
+    patterns.literal("c"),
+    patterns.literal("close"),
+    patterns.literal("h"),
+    patterns.literal("halt"),
+    patterns.literal("hang"),
+    patterns.literal("k"),
+    patterns.literal("kill"),
+    patterns.literal("l"),
+    patterns.literal("lock"),
+    patterns.literal("r"),
+    patterns.literal("read"),
+    patterns.literal("tc"),
+    patterns.literal("tcommit"),
+    patterns.literal("tre"),
+    patterns.literal("trestart"),
+    patterns.literal("tro"),
+    patterns.literal("trollback"),
+    patterns.literal("ts"),
+    patterns.literal("tstart"),
+    patterns.literal("u"),
+    patterns.literal("use")
+  )
+)
 -- }}}
 -- {{{ Arithmetic / Expression patterns
 local numericRelationalOperators = patterns.branch(
@@ -168,18 +147,20 @@ local calledFunctionIdentifiers = patterns.concat(
 )
 -- }}}
 -- {{{ String Identifiers
-local nonQuoteAscii = S'.'
-  + S'!'
-  + S','
-  + S'#'
-  + S'$'
-  + S'%'
-  + S'('
-  + S')'
-  + S'*'
-  + S'='
-  + S'_'
-  + S'\''
+local nonQuoteAscii = patterns.branch(
+  patterns.literal('.'),
+  patterns.literal('!'),
+  patterns.literal(','),
+  patterns.literal('#'),
+  patterns.literal('$'),
+  patterns.literal('%'),
+  patterns.literal('('),
+  patterns.literal(')'),
+  patterns.literal('*'),
+  patterns.literal('='),
+  patterns.literal('_'),
+  patterns.literal('\'')
+)
 
 local stringCharacter = patterns.branch(
   alphanum,
@@ -187,13 +168,13 @@ local stringCharacter = patterns.branch(
   nonQuoteAscii
 )
 
-local anyCharacter = stringCharacter +  S'"'
+local anyCharacter = stringCharacter +  patterns.literal('"')
 -- }}}
 -- {{{ Line and File Identifiers
 -- Optional end of line matching or end of string (which is kind of like end of line :) )
 local EOL = patterns.branch(
-  P"\r"^-1 * P"\n",
-  -P(1)
+  patterns.end_of_line,
+  patterns.end_of_file
 )
 
 local startOfLine = patterns.branch(
@@ -205,40 +186,47 @@ local startOfLine = patterns.branch(
 -- M grammar, non-recursive and testable items
 
 -- ordered choice of all tokens and last-resort error which consumes one character
+-- luacheck: no unused args
 local m_grammar = epnfs.define( function(_ENV)
 
+  -- START is an operative made from epnfs
+  -- luacheck: globals START
   START "mFile"
 
   -- Basic Definitions {{{
   -- {{{ mDigit
-  mDigit = C(digit^1)
+  mDigit = patterns.capture(digit^1)
   -- }}}
-  mComment = C( -- {{{
-    patterns.concat(
-      patterns.literal(';'),
-      patterns.any_amount(anyCharacter),
-      #EOL
-    )
+  mComment = patterns.concat( -- {{{
+    patterns.capture(
+      patterns.concat(
+        patterns.literal(';'),
+        patterns.any_amount(anyCharacter)
+      )
+    ),
+    EOL
   ) -- }}}
-  mString = C(patterns.concat( -- {{{
+  mString = patterns.capture(patterns.concat( -- {{{
     patterns.literal('"'),
     stringCharacter^0,
     patterns.literal('"')
   )) -- }}}
   -- }}}
-
-  mFile = V("mBlock") * (EOL^-1) + Ct("")
-  mBlock = patterns.any_amount(
-    Ct(
-      patterns.branch(
-        V("mComment"),
-        V("mLabel")
-      )
-    )
+  -- {{{ mFile
+  mFile = patterns.concat(
+    V("mBlock"),
+    patterns.end_of_file
   )
-
+  -- }}}
+  --  {{{ mBlock
+  mBlock = patterns.any_amount(
+    patterns.branch(
+      V("mComment"),
+      V("mLabel")
+    )
+  ) -- }}}
   -- mLabel* {{{
-  mLabelName = C(namedIdentifiers)
+  mLabelName = patterns.capture(namedIdentifiers)
   mLabel = patterns.concat(
     startOfLine,
     V("mLabelName"),
@@ -248,14 +236,14 @@ local m_grammar = epnfs.define( function(_ENV)
   )
   -- }}}
   -- mArgument* {{{
-  mFunctionArgument = C(patterns.one_or_more(alphanum))
+  mFunctionArgument = patterns.capture(patterns.one_or_more(alphanum))
 
   mArgumentDeclaration = patterns.concat(
     left_parenth,
-    C(patterns.one_or_no(
+    patterns.capture(patterns.one_or_no(
       patterns.concat(
         V("mFunctionArgument"),
-        patterns.concat(commma, V("mFunctionArgument"))
+        patterns.concat(comma, V("mFunctionArgument"))
       )
     )),
     right_parenth,
@@ -272,10 +260,14 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   -- TODO: Make a dotted line
-  mBodyLine = optionalWhitespace * V("mCommand") * EOL
+  mBodyLine = patterns.concat(
+    patterns.any_amount(whitespace),
+    V("mCommand"),
+    EOL
+  )
   -- }}}
   -- M Expressions {{{
-  mArithmeticOperators = C(arithmeticOperators)
+  mArithmeticOperators = patterns.capture(arithmeticOperators)
 
   mArithmeticExpression = patterns.one_or_more(
     patterns.branch(
@@ -284,6 +276,16 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mArithmeticOperators"),
       V("mVariable"),
       V("mFunctionCall")
+    )
+  )
+
+  mStringExpression = patterns.concat(
+    V("mString"),
+    patterns.one_or_more(
+      patterns.concat(
+        concatenationOperators,
+        V("mString")
+      )
     )
   )
 
@@ -305,7 +307,7 @@ local m_grammar = epnfs.define( function(_ENV)
   ) -- }}}
   -- Do Commands {{{
   mDoCommand = patterns.concat(
-    C(doCommand),
+    patterns.capture(doCommand),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
     V("mDoCommandArgs")
@@ -313,7 +315,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
   mDoCommandArgs = V("mDoFunctionCall")
   mDoFunctionCall = patterns.concat(
-    C(calledFunctionIdentifiers),
+    patterns.capture(calledFunctionIdentifiers),
     left_parenth,
     patterns.any_amount(
       patterns.branch(
@@ -327,7 +329,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- Set Commands {{{
   mSetCommand = patterns.concat(
-    C(setCommand),
+    patterns.capture(setCommand),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
     V("mSetCommandArgs")
@@ -355,7 +357,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- Write Commands {{{
   mWriteCommand = patterns.concat(
-    C(writeCommand),
+    patterns.capture(writeCommand),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
     V("mCommandArgs")
@@ -363,40 +365,43 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- New Commands {{{
   mNewCommand = patterns.concat(
-    C(newCommand),
+    patterns.capture(newCommand),
     patterns.one_or_no(V("mPostConditional")),
-    whitespace,
+    single_space,
     V("mNewCommandArgs")
   )
 
   mNewCommandArgs = patterns.concat(
-    patterns.one_or_more(
-      patterns.branch(
-        V("mVariable"),
-        V("mCommandSeparator")
+    patterns.capture(
+      patterns.one_or_more(
+        patterns.branch(
+          V("mVariableNonArray"),
+          V("mCommandSeparator")
+        )
       )
     ),
-    V("mCapturedError"),
+    -- TODO: Get mCapturedError to work well
+    -- V("mCapturedError"),
     EOL
   )
 
   -- }}}
   -- {{{ Normal Command
   mNormalCommand = patterns.concat(
-    C(normalCommands),
+    patterns.capture(normalCommands),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
     patterns.one_or_no(V("mCommandArgs"))
   )
   -- }}}
   -- Post Conditionals {{{
-  mPostConditionalSeparator = C(patterns.literal(':'))
+  mPostConditionalSeparator = patterns.capture(patterns.literal(':'))
   mPostConditionalExpression = V("mRelationalExpression")
 
   -- TODO: Match the parenths
   mPostConditional = patterns.concat(
     V("mPostConditionalSeparator"),
-    C(
+    patterns.capture(
       patterns.concat(
         V("mPostConditionalExpression"),
         patterns.any_amount(
@@ -411,8 +416,8 @@ local m_grammar = epnfs.define( function(_ENV)
   )
   -- }}}
   -- All Commands {{{
-  mCommandSeparator = C(comma)
-  mCommandOperator = V("mDigit") * C(commandOperator)
+  mCommandSeparator = patterns.capture(comma)
+  mCommandOperator = V("mDigit") * patterns.capture(commandOperator)
   -- }}}
 
   mCommandArgs = (
@@ -433,7 +438,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
-  mParameter = Cb('closed_paren') * P(namedIdentifiers)
+  -- mParameter = Cb('closed_paren') * namedIdentifiers
 
   mVariableNonArray = variableIdentifiers
   mVariableArray = patterns.concat(
@@ -451,17 +456,18 @@ local m_grammar = epnfs.define( function(_ENV)
     right_parenth
   )
 
-  mVariable = C(
+  mVariable = patterns.capture(
     patterns.branch(
       V("mVariableNonArray"),
       V("mVariableArray")
     )
   )
 
-  mFunctionCall = C(
+  mFunctionCall = patterns.capture(
     patterns.concat(
       patterns.branch(
-        (P'$$' + P'$')
+        patterns.literal('$$'),
+        patterns.literal('$')
       ),
       V("mDoFunctionCall")
     )
@@ -470,7 +476,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- Extra
 
   mError = (1 - EOL) ^ 1
-  mCapturedError = C(patterns.one_or_no(V("mError")))
+  mCapturedError = patterns.capture(patterns.one_or_no(V("mError")))
 end)
 
 return {

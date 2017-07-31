@@ -1,4 +1,6 @@
-local nvim = vim.api
+-- luacheck: globals vim
+local vim = vim or {}
+local nvim = vim.api or {}
 
 local epnf = require('mparse.token')
 local m_grammar = require('mparse.grammar').m_grammar
@@ -22,9 +24,14 @@ highlighter.add_highlight = function(buffer, group, line, start, finish)
   nvim.nvim_buf_add_highlight(buffer, src_id, group, line, start, finish)
 end
 
+highlighter.get_lines = function(buffer)
+  return table.concat(nvim.nvim_buf_get_lines(buffer, 0, -1, true), "\n")
+end
+
+
 highlighter.get_ast = function(buffer)
   -- TODO: Maybe someday pass a diff only
-  local buf = table.concat(nvim.nvim_buf_get_lines(buffer, 0, -1, true), "\n")
+  local buf = highlighter.get_lines(buffer)
   return epnf.parsestring(m_grammar, buf)
 end
 
@@ -33,6 +40,10 @@ highlighter.get_highlights = function(buffer)
   cache.clear_cache()
 
   local ast = highlighter.get_ast(buffer)
+
+  if ast == nil then
+    return {}
+  end
 
   local highlights = {}
 
@@ -55,10 +66,9 @@ highlighter.append_highlights = function(ast, result)
     })
   end
 
-  for k, v in pairs(ast) do
+  for k, _ in pairs(ast) do
     if type(k) == 'number' then
       util.t_concat(result, highlighter.append_highlights(ast[k], result))
-    else
     end
   end
 
@@ -71,9 +81,9 @@ highlighter.convert_pos_to_start_finish = function(pos)
 
   -- TODO: Cache these values, as well as the line2byte values
   -- This should dramatically reduce the number of RPC calls that I need to make
-  -- especially considering that so many of the calls occur for items on the same line. 
+  -- especially considering that so many of the calls occur for items on the same line.
   local start_line = cache.call_cache('byte2line', {s})
-  local finish_line = cache.call_cache('byte2line', {f})
+  -- local finish_line = cache.call_cache('byte2line', {f})
 
   -- TODO: Figure out what to do if they are on separate lines
   local start_line_byte = cache.call_cache('line2byte', {start_line})
@@ -92,7 +102,7 @@ highlighter.apply_highlights = function(buffer)
 
   local highlights = highlighter.get_highlights(buffer)
 
-  for k, v in pairs(highlights) do
+  for _, v in pairs(highlights) do
     highlighter.add_highlight(buffer, v.id, v.args.line, v.args.col_start, v.args.col_end)
   end
 

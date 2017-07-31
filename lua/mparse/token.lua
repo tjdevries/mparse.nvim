@@ -2,9 +2,7 @@
 -- github.com epnfs.lua
 
 -- local L = require( "lpeg" )
-local L = require('lulpeg.lulpeg')
-
-local util = require('mparse.util')
+local L = require('mparse.lpeg')
 
 local assert = assert
 local string, io = assert( string ), assert( io )
@@ -26,8 +24,6 @@ end
 
 -- module table
 local epnf = {}
-
-local declaration_parameters = {}
 
 -- maximum of two numbers while avoiding math lib as a dependency
 local function max( a, b )
@@ -82,11 +78,6 @@ local function parse_error( s, p, n, e )
     if e then msg = msg .. ", " .. e end
     error( n..":"..lno..msg, 0 )
   end
-end
-
-function epnf.declaration_parameters( ... )
-  print('getting decs')
-  return declaration_parameters
 end
 
 local function make_ast_node( id, pos, t )

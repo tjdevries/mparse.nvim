@@ -1,12 +1,11 @@
--- local lpeg = require('lpeg')
-local lpeg = require('lulpeg.lulpeg')
+local lpeg = require('mparse.lpeg')
 
-local P, R, S, B, C, Cc, Ct, Cp, Cg, V =
-  lpeg.P, lpeg.R, lpeg.S, lpeg.B, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cp, lpeg.Cg, lpeg.V
+local P, S, C, Ct, Cg, V =
+  lpeg.P, lpeg.S, lpeg.C, lpeg.Ct, lpeg.Cg, lpeg.V
 
 local fold = function (func, ...)
   local result = nil
-  for i, v in ipairs({...}) do
+  for _, v in ipairs({...}) do
     if result == nil then
       result = v
     else
@@ -23,6 +22,9 @@ local folder = function (func)
 end
 
 local patterns = {}
+
+patterns.V = function(item) return lpeg.V(item) end
+patterns.table_capture = function(item) return lpeg.Ct(item) end
 
 -- Determines if the start, finish are closed
 -- and creates a group capture of "name"
@@ -45,17 +47,21 @@ patterns.split = function(value, sep)
     Ct(V("elem") * (V("sep") * V("elem"))^0),
 
     sep = S(sep .. "()"),
-    elem = C(((1-V("sep")) + g_paren)^0),
+    elem = C(((1-V("sep")) + patterns.g_paren)^0),
   })
 
   return lpeg.match(g_split, value)
 end
 
+patterns.any_character = lpeg.P(1)
+patterns.end_of_file = -lpeg.P(1)
+patterns.end_of_line = lpeg.P"\r"^-1 * lpeg.P"\n"
+
+
 patterns.literal = lpeg.P
 patterns.set = function(...)
   return lpeg.S(fold(function (a, b) return a .. b end, ...))
 end
-patterns.any_character = lpeg.P(1)
 patterns.range = function(s, e) return lpeg.R(s .. e) end
 patterns.concat = folder(function (a, b) return a * b end)
 patterns.branch = folder(function (a, b) return a + b end)
@@ -78,6 +84,10 @@ patterns.optional_surrounding = function(start, finish, v)
   )
 end
 
+patterns.capture = function(a)
+  return C(a)
+end
+
 -- command_helper("do") -> "do", "DO", "Do", "d", "D",
 patterns.command_helper = function(s)
   return patterns.branch(
@@ -90,8 +100,9 @@ patterns.command_helper = function(s)
 end
 
 
-function string:split(sep)
-  local sep, fields = sep or ",", {}
+-- luacheck: ignore 142
+function string:split(s)
+  local sep, fields = s or ",", {}
   local pattern = string.format("([^%s]+)", sep)
   self:gsub(pattern, function(c) fields[#fields + 1] = c end)
   return fields
