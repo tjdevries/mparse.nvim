@@ -13,7 +13,11 @@ myFunction(arg) ;
   q 2
 ]])
     local post_conditional = helpers.get_item(parsed, 'id', 'mPostConditional')
+    print()
+    print(require('mparse.util').to_string(parsed))
+    print()
     neq(nil, post_conditional)
+    eq(nil, post_conditional)
   end)
 
   it('should detect until whitespace', function()

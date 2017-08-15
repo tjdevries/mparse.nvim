@@ -47,7 +47,6 @@ local setCommand = patterns.command_helper("set")
 
 local normalCommands = patterns.capture(
   patterns.branch(
-    quitCommand,
     mergeCommand,
     ifCommand,
     elseCommand,
@@ -195,7 +194,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
   -- Basic Definitions {{{
   -- {{{ mDigit
-  mDigit = patterns.capture(digit^1)
+  mDigit = patterns.capture(patterns.one_or_more(digit))
   -- }}}
   mComment = patterns.concat( -- {{{
     patterns.capture(
@@ -243,7 +242,9 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.capture(patterns.one_or_no(
       patterns.concat(
         V("mFunctionArgument"),
-        patterns.concat(comma, V("mFunctionArgument"))
+        patterns.any_amount(
+          patterns.concat(comma, V("mFunctionArgument"))
+        )
       )
     )),
     right_parenth,
@@ -263,6 +264,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mBodyLine = patterns.concat(
     patterns.any_amount(whitespace),
     V("mCommand"),
+    patterns.any_amount(patterns.any_character),
     EOL
   )
   -- }}}
@@ -303,6 +305,7 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mWriteCommand"),
     V("mNewCommand"),
     V("mSetCommand"),
+    V("mQuitCommand"),
     V("mNormalCommand")
   ) -- }}}
   -- Do Commands {{{
@@ -379,12 +382,27 @@ local m_grammar = epnfs.define( function(_ENV)
           V("mCommandSeparator")
         )
       )
-    ),
+    )
     -- TODO: Get mCapturedError to work well
     -- V("mCapturedError"),
-    EOL
   )
 
+  -- }}}
+  -- Quit Commands {{{
+  mQuitCommand = patterns.concat(
+    patterns.capture(quitCommand),
+    patterns.one_or_no(V("mPostConditional")),
+    single_space,
+    V("mQuitCommandArgs")
+  )
+
+  mQuitCommandArgs = patterns.capture(
+    patterns.branch(
+      V("mDigit"),
+      V("mVariable"),
+      V("mFunctionCall")
+    )
+  )
   -- }}}
   -- {{{ Normal Command
   mNormalCommand = patterns.concat(
@@ -418,22 +436,20 @@ local m_grammar = epnfs.define( function(_ENV)
   -- All Commands {{{
   mCommandSeparator = patterns.capture(comma)
   mCommandOperator = V("mDigit") * patterns.capture(commandOperator)
+  mCommandArgs = patterns.branch(
+    V("mCommandSeparator"),
+    V("mFunctionCall"),
+    V("mCommandOperator"),
+    -- TODO: Some of these digits are not getting captured correctly
+    V("mDigit"),
+    V("mString"),
+    -- TODO: Add this with back captures or something.
+    -- Not sure how to get it to work correctly
+    -- + V("mParameter")
+    V("mVariable"),
+    anyCharacter
+  )
   -- }}}
-
-  mCommandArgs = (
-    V("mCommandSeparator")
-      + V("mFunctionCall")
-      + V("mCommandOperator")
-      -- TODO: Some of these digits are not getting captured correctly
-      + V("mDigit")
-      + V("mString")
-      -- TODO: Add this with back captures or something.
-      -- Not sure how to get it to work correctly
-      -- + V("mParameter")
-      + V("mVariable")
-      + anyCharacter
-    - EOL)
-
 
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
