@@ -6,5 +6,6 @@ ignore = {
 
 globals = {
     "describe",
-    "it"
+    "it",
+    "E"
 }

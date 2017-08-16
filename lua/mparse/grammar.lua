@@ -209,7 +209,10 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.literal('"'),
     patterns.any_amount(stringCharacter),
     patterns.literal('"')
-  )) -- }}}
+  ))
+
+  mConcatenationOperators = patterns.capture(concatenationOperators)
+  -- }}}
   -- }}}
   -- {{{ mFile
   mFile = patterns.concat(
@@ -285,7 +288,7 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mString"),
     patterns.one_or_more(
       patterns.concat(
-        concatenationOperators,
+        V("mConcatenationOperators"),
         V("mString")
       )
     )
@@ -369,7 +372,7 @@ local m_grammar = epnfs.define( function(_ENV)
       patterns.any_amount(
         patterns.concat(
           patterns.branch(
-            concatenationOperators,
+            V("mConcatenationOperators"),
             V("mCommandSeparator")
           ),
           V("_mWriteCommandSection")
@@ -388,16 +391,22 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mNewCommandArgs = patterns.concat(
-    patterns.one_or_more(
+    patterns.concat(
+      V("mVariable"),
       patterns.branch(
-        -- TODO: This should not actually be mVariable, since it will capture arrays,
-        --  which shouldn't be allowed to be newed
-        V("mVariable"),
-        V("mCommandSeparator")
+        patterns.any_amount(
+          patterns.concat(
+            -- TODO: This should not actually be mVariable, since it will capture arrays,
+            --  which shouldn't be allowed to be newed
+            V("mCommandSeparator"),
+            V("mVariable")
+          )
+        )
+        -- E("borken new")
       )
-    ),
+    )
     -- TODO: Get mCapturedError to work well
-    V("mCapturedError")
+    -- E("broken variable")
   )
 
   -- }}}
@@ -456,9 +465,11 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- All Commands {{{
   mCommandSeparator = patterns.capture(comma)
-  mCommandOperator = patterns.concat(
-    patterns.one_or_no(V("mDigit")),
-    patterns.capture(commandOperator)
+  mCommandOperator = patterns.capture(
+    patterns.concat(
+      patterns.one_or_no(V("mDigit")),
+      commandOperator
+    )
   )
   mCommandArgs = patterns.branch(
     V("mCommandSeparator"),

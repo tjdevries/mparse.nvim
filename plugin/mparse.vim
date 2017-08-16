@@ -2,7 +2,7 @@
 " another line
 
 function! MHighlight() abort
-    call luaeval('require("mparse.init").highlight()')
+    return luaeval('require("mparse.init").highlight()')
 endfunction
 
 " TODO:
@@ -14,6 +14,7 @@ CPHL mWriteCommand mCommand - -
 CPHL mNewCommand mCommand - -
 CPHL mNormalCommand mCommand - -
 CPHL mSetCommand mCommand - -
+CPHL mQuitCommand mCommand - -
 
 CPHL mCommandOperator yellow - -
 

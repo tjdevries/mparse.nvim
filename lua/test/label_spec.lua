@@ -21,7 +21,9 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
     eq(labelName.value, "MyCommentedLabel")
-    eq(labelName.pos, {start=32, finish=47})
+    eq(labelName.pos.start, 32)
+    eq(labelName.pos.finish, 47)
+    eq(labelName.pos.line_number, 2)
   end)
 
   it('should find the arguments inside of the label', function()
@@ -35,8 +37,8 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 ]])
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
     neq(nil, arguments)
-    eq('arg1', arguments[2].value)
-    eq('arg2', arguments[3].value)
+    eq('arg1', arguments[1].value)
+    eq('arg2', arguments[2].value)
 
     local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
     neq(nil, command)
@@ -44,7 +46,9 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 
     local s = helpers.get_item(command, 'id', 'mString')
     eq(s.value, '"this will be a mArgumentReference"')
-    eq(s.pos, {start=84, finish=118})
+    eq(s.pos.start, 84)
+    eq(s.pos.finish, 118)
+    eq(s.pos.line_number, 3)
 
     if grammar.parameters_enabled then
       local param = helpers.get_item(command, 'id', 'mParameter')
@@ -128,6 +132,8 @@ testLabel ; comment
         local var = helpers.get_item(command, 'id', 'mVariable')
         neq(nil, var)
         eq(var.value, 'myVar')
+
+        eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
 
       it('should show an error for calling functions', function()
@@ -136,13 +142,17 @@ testLabel ; comment
   n myVar,$$errorFunction()
   q
 ]])
+
+    print()
+    print(require('mparse.util').to_string(parsed))
+    print()
         local command = helpers.get_item(parsed, 'id', 'mNewCommand')
         neq(nil, command)
 
         local err = helpers.get_item(command, 'id', 'mCapturedError')
         neq(nil, err)
-        eq('$$errorFunction()', err.value)
-        eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
+        eq(',$$errorFunction()', err.value)
+        eq(#',$$errorFunction()', err.pos.finish - err.pos.start + 1)
       end)
     end)
 
@@ -203,9 +213,29 @@ testLabel ; comment
 BasicTest(opt) ;
     w "hello",!,"new line",5!
 ]])
-        print()
-        print(require('mparse.util').to_string(parsed))
-        print()
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mWriteCommand'))
+        neq(nil, helpers.get_item(parsed, 'id', 'mCommandOperator'))
+        eq('!', helpers.get_item(parsed, 'id', 'mCommandOperator').value)
+      end)
+
+      it('should handle concatenation', function()
+        local parsed = epnf.parsestring(m, [[
+BasicTest(opt) ;
+    w "hello"_" new world "_opt
+]])
+        neq(nil, parsed)
+        local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
+        neq(nil, helpers.get_item(command, 'id', 'mConcatenationOperators'))
+      end)
+
+      it('should handle other commands with it', function()
+        local parsed = epnf.parsestring(m, [[
+myLabel() ; a comment
+    n myVar
+    w "This or that"
+    q myVar
+]])
         neq(nil, parsed)
       end)
     end)

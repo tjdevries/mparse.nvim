@@ -37,7 +37,8 @@ MyLabel(arg1,arg2) n hello
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
     eq(labelName.value, "MyLabel")
-    eq(labelName.pos, {start=1, finish=7})
+    eq(labelName.pos.start, 1)
+    eq(labelName.pos.finish, 7)
   end)
 
   it('should return the name of the label even with comments', function()
@@ -54,7 +55,9 @@ MyLabel(arg1,arg2) n hello
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
     eq(labelName.value, "MyLabel")
-    eq(labelName.pos, {start=61, finish=67})
+    eq(labelName.pos.start, 61)
+    eq(labelName.pos.finish, 67)
+    eq(labelName.pos.line_number, 3)
 
     local comment = helpers.get_item(parsed, 'id', 'mComment')
     eq(comment.id, "mComment")
@@ -75,9 +78,13 @@ MyLabel(arg1) ;
   it('should allow quitting with numbers', function()
     local parsed = epnf.parsestring(m, [[
 MyLabel() ;
+  w "hello world!"
   q 1
 ]])
     neq(nil, parsed)
     neq(nil, helpers.get_item(parsed, 'id', 'mQuitCommand'))
+    print()
+    print(require('mparse.util').to_string(parsed))
+    print()
   end)
 end)

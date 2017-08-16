@@ -12,6 +12,8 @@ local src_id = 25832
 
 local highlighter = {}
 
+highlighter.debug = false
+
 highlighter.clear_highlights = function(buffer, start, finish)
   nvim.nvim_buf_clear_highlight(buffer, src_id, start, finish)
 end
@@ -21,6 +23,10 @@ highlighter.clear_all = function(buffer)
 end
 
 highlighter.add_highlight = function(buffer, group, line, start, finish)
+  if highlighter.debug then
+    nvim.nvim_command(string.format('echom "Adding: %s, %d, %d, %d"', group, line, start, finish))
+  end
+
   nvim.nvim_buf_add_highlight(buffer, src_id, group, line, start, finish)
 end
 
@@ -76,24 +82,16 @@ highlighter.append_highlights = function(ast, result)
 end
 
 highlighter.convert_pos_to_start_finish = function(pos)
-  local s = pos.start
-  local f = pos.finish
-
-  -- TODO: Cache these values, as well as the line2byte values
-  -- This should dramatically reduce the number of RPC calls that I need to make
-  -- especially considering that so many of the calls occur for items on the same line.
-  local start_line = cache.call_cache('byte2line', {s})
-  -- local finish_line = cache.call_cache('byte2line', {f})
+  local start_line = pos.line_number
 
   -- TODO: Figure out what to do if they are on separate lines
-  local start_line_byte = cache.call_cache('line2byte', {start_line})
-  local col_start = s - start_line_byte
-  local col_end = f - start_line_byte
+  local col_start = pos.column_start
+  local col_end = pos.column_finish
 
   return {
-    line=start_line - 1,
-    col_start=col_start,
-    col_end=col_end + 1,
+    line = start_line - 1,
+    col_start = col_start,
+    col_end = col_end + 1,
   }
 end
 

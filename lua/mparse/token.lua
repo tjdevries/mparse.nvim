@@ -1,7 +1,6 @@
 -- thanks to
 -- github.com epnfs.lua
 
--- local L = require( "lpeg" )
 local L = require('mparse.lpeg')
 
 local assert = assert
@@ -83,11 +82,13 @@ end
 local function make_ast_node( id, pos, t )
   t.id = id
 
+  local _, lno, sol = getline( epnf.current_string, pos )
+
   -- Place a value
   if t[1] and type(t[1]) == 'string' then
     t.value = t[1]
-  else
-    t.value = nil
+    -- I don't want to see any strings that are just sitting there
+    table.remove(t, 1)
   end
 
   -- Get the start and finish positions
@@ -97,9 +98,14 @@ local function make_ast_node( id, pos, t )
   end
 
   t.pos = {
-    start=pos,
-    finish=finish,
+    start = pos,
+    finish = finish,
+    start_of_line = sol,
+    line_number = lno,
+    column_start = pos - sol,
+    column_finish = finish - sol,
   }
+
   return t
 end
 
@@ -192,6 +198,7 @@ end
 -- picks a sensible name for error messages
 function epnf.parsestring( g, str, ... )
   local s = string.sub( str, 1, 20 )
+  epnf.current_string = str
   if #s < #str then s = s .. "..." end
   local name = "[\"" .. string.gsub( s, "\n", "\\n" ) .. "\"]"
   return epnf.parse( g, name, str, ... )
