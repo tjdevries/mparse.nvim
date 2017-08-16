@@ -207,7 +207,7 @@ local m_grammar = epnfs.define( function(_ENV)
   ) -- }}}
   mString = patterns.capture(patterns.concat( -- {{{
     patterns.literal('"'),
-    stringCharacter^0,
+    patterns.any_amount(stringCharacter),
     patterns.literal('"')
   )) -- }}}
   -- }}}
@@ -300,13 +300,16 @@ local m_grammar = epnfs.define( function(_ENV)
     left_parenth, right_parenth, V("mInnerRelationalExpression")
   )
   -- }}}
-  mCommand = patterns.branch( -- {{{
-    V("mDoCommand"),
-    V("mWriteCommand"),
-    V("mNewCommand"),
-    V("mSetCommand"),
-    V("mQuitCommand"),
-    V("mNormalCommand")
+  mCommand = patterns.concat( -- {{{
+    patterns.branch(
+      V("mDoCommand"),
+      V("mWriteCommand"),
+      V("mNewCommand"),
+      V("mSetCommand"),
+      V("mQuitCommand"),
+      V("mNormalCommand")
+    ),
+    V("mCommandFinish")
   ) -- }}}
   -- Do Commands {{{
   mDoCommand = patterns.concat(
@@ -339,14 +342,11 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mSetCommandArgs = patterns.branch(
-    patterns.concat(
-      patterns.one_or_more(
-        patterns.branch(
-          V("mCommandSeparator"),
-          V("mSetExpression")
-        )
-      ),
-      patterns.look_ahead(whitespace)
+    patterns.one_or_more(
+      patterns.branch(
+        V("mCommandSeparator"),
+        V("mSetExpression")
+      )
     ),
     patterns.one_or_no(V("mCapturedError"))
   )
@@ -363,7 +363,27 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.capture(writeCommand),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
-    V("mCommandArgs")
+    V("mWriteCommandArgs")
+  )
+
+  _mWriteCommandSection = patterns.branch(
+    V("mString"),
+    V("mVariable"),
+    V("mRelationalExpression"),
+    V("mArithmeticExpression"),
+    V("mFunctionCall")
+  )
+  mWriteCommandArgs = patterns.concat(
+    V("_mWriteCommandSection"),
+    patterns.any_amount(
+      patterns.concat(
+        patterns.branch(
+          concatenationOperators,
+          V("mCommandSeparator")
+        ),
+        V("_mWriteCommandSection")
+      )
+    )
   )
   -- }}}
   -- New Commands {{{
@@ -375,16 +395,16 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mNewCommandArgs = patterns.concat(
-    patterns.capture(
-      patterns.one_or_more(
-        patterns.branch(
-          V("mVariableNonArray"),
-          V("mCommandSeparator")
-        )
+    patterns.one_or_more(
+      patterns.branch(
+        -- TODO: This should not actually be mVariable, since it will capture arrays,
+        --  which shouldn't be allowed to be newed
+        V("mVariable"),
+        V("mCommandSeparator")
       )
-    )
+    ),
     -- TODO: Get mCapturedError to work well
-    -- V("mCapturedError"),
+    V("mCapturedError")
   )
 
   -- }}}
@@ -392,15 +412,23 @@ local m_grammar = epnfs.define( function(_ENV)
   mQuitCommand = patterns.concat(
     patterns.capture(quitCommand),
     patterns.one_or_no(V("mPostConditional")),
-    single_space,
-    V("mQuitCommandArgs")
+    patterns.branch(
+      patterns.one_or_no(
+        patterns.concat(
+          single_space,
+          V("mQuitCommandArgs")
+        )
+      ),
+      V("mCapturedError")
+    )
   )
 
+  -- Any arithmetic expression should work I think
+  -- TODO: Might want to have a better name for this, like string concatenation, etc.
   mQuitCommandArgs = patterns.capture(
     patterns.branch(
-      V("mDigit"),
-      V("mVariable"),
-      V("mFunctionCall")
+      V("mArithmeticExpression"),
+      V("mString")
     )
   )
   -- }}}
@@ -448,6 +476,12 @@ local m_grammar = epnfs.define( function(_ENV)
     -- + V("mParameter")
     V("mVariable"),
     anyCharacter
+  )
+  mCommandFinish = patterns.look_ahead(
+    patterns.branch(
+      whitespace,
+      EOL
+    )
   )
   -- }}}
 

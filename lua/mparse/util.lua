@@ -26,15 +26,24 @@ function table_print (tt, indent, done)
   end
 end
 
-local to_string = function ( tbl )
-  if  "nil"       == type( tbl ) then
-    return tostring(nil)
-  elseif  "table" == type( tbl ) then
-    return table_print(tbl)
-  elseif  "string" == type( tbl ) then
-    return tbl
-  else
-    return tostring(tbl)
+local to_string = function(tbl)
+  -- Use penlight if we've got it
+  local w = require('pl.pretty').write
+
+  if w then
+    return w(tbl)
+  end
+
+  return function ( tbl )
+    if  "nil"       == type( tbl ) then
+      return tostring(nil)
+    elseif  "table" == type( tbl ) then
+      return table_print(tbl)
+    elseif  "string" == type( tbl ) then
+      return tbl
+    else
+      return tostring(tbl)
+    end
   end
 end
 

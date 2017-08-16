@@ -35,8 +35,8 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 ]])
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
     neq(nil, arguments)
-    eq(arguments.value, {'arg1', 'arg2'})
-    eq(arguments.pos, {start=48, finish=56})
+    eq('arg1', arguments[2].value)
+    eq('arg2', arguments[3].value)
 
     local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
     neq(nil, command)
@@ -97,7 +97,7 @@ testLabel ; comment
   w just,do,stuff,here
 ]])
     local label = helpers.get_item(parsed, 'id', 'mLabelName')
-    -- neq(nil, label)
+    neq(nil, label)
     -- eq(label.value, 'testLabel')
   end)
 
