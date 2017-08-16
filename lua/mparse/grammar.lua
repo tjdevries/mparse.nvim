@@ -48,7 +48,6 @@ local setCommand = patterns.command_helper("set")
 local normalCommands = patterns.capture(
   patterns.branch(
     mergeCommand,
-    ifCommand,
     elseCommand,
     xecuteCommand,
     forCommand,
@@ -200,6 +199,9 @@ local start_of_line = patterns.concat(
 -- ordered choice of all tokens and last-resort error which consumes one character
 -- luacheck: no unused args
 local m_grammar = epnfs.define( function(_ENV)
+  local error_capture = function(msg)
+    return patterns.branch(E(msg), V("mCapturedError"))
+  end
 
   -- START is an operative made from epnfs
   -- luacheck: globals START
@@ -284,8 +286,10 @@ local m_grammar = epnfs.define( function(_ENV)
   mBodyLine = patterns.concat(
     start_of_line,
     patterns.one_or_more(V("mCommand")),
-    patterns.one_or_no(V("mComment")),
-    EOL
+    patterns.branch(
+      V("mComment"),
+      EOL
+    )
   )
   -- }}}
   -- M Expressions {{{
@@ -317,13 +321,19 @@ local m_grammar = epnfs.define( function(_ENV)
     )
   )
 
-  mInnerRelationalExpression = patterns.concat(
-    V("mArithmeticExpression"),
-    relationalOperators,
-    V("mArithmeticExpression")
+  mInnerRelationalExpression = patterns.optional_surrounding(
+    left_parenth,
+    right_parenth,
+    patterns.concat(
+      V("mArithmeticExpression"),
+      relationalOperators,
+      V("mArithmeticExpression")
+    )
   )
   mRelationalExpression = patterns.optional_surrounding(
-    left_parenth, right_parenth, V("mInnerRelationalExpression")
+    left_parenth,
+    right_parenth,
+    patterns.any_amount(V("mInnerRelationalExpression"))
   )
   -- }}}
   mCommand = patterns.concat( -- {{{
@@ -333,6 +343,7 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mNewCommand"),
       V("mSetCommand"),
       V("mQuitCommand"),
+      V("mIfCommand"),
       V("mNormalCommand")
     ),
     V("mCommandFinish")
@@ -342,10 +353,51 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.capture(doCommand),
     patterns.one_or_no(V("mPostConditional")),
     whitespace,
-    V("mDoCommandArgs")
+    patterns.branch(
+      V("mDoCommandArgs"),
+      error_capture("Can't find that dang do command args")
+    )
   )
 
   mDoCommandArgs = V("mDoFunctionCall")
+  -- }}}
+  -- If Commands {{{
+  -- TODO: Else, else if
+  mIfCommand = patterns.concat(
+    patterns.capture(ifCommand),
+    whitespace,
+    patterns.branch(
+      patterns.concat(
+        patterns.optional_surrounding(
+          left_parenth,
+          right_parenth,
+          V("mIfCommandArgs")
+        ),
+        whitespace,
+        V("mCommand")
+      ),
+      error_capture("Error in ifCommand")
+    )
+  )
+
+  _mIfCommandSection = patterns.branch(
+    V("mArithmeticExpression"),
+    V("mRelationalExpression"),
+    V("mDigit"),
+    -- V("mString"),
+    V("mVariable"),
+    V("mFunctionCall")
+  )
+  mIfCommandArgs = patterns.concat(
+    V("_mIfCommandSection"),
+    patterns.any_amount(
+      patterns.concat(
+        V("mCommandSeparator"),
+        V("_mIfCommandSection")
+      )
+    )
+  )
+
   -- }}}
   -- Set Commands {{{
   mSetCommand = patterns.concat(
@@ -362,7 +414,7 @@ local m_grammar = epnfs.define( function(_ENV)
         V("mSetExpression")
       )
     ),
-    patterns.one_or_no(V("mCapturedError"))
+    patterns.one_or_no(error_capture("error in mSetCommandArgs"))
   )
 
   -- variable=generalExpression
@@ -403,7 +455,7 @@ local m_grammar = epnfs.define( function(_ENV)
         )
       )
     ),
-    V("mCapturedError")
+    error_capture("Error in mWriteCommandArgs")
   )
   -- }}}
   -- New Commands {{{
@@ -514,7 +566,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mCommandFinish = patterns.branch(
     patterns.look_ahead(
       patterns.branch(
-        whitespace,
+        single_space,
         EOL
       )
     ),
@@ -533,20 +585,22 @@ local m_grammar = epnfs.define( function(_ENV)
   -- Should allow for highlight parameters with different colors!
   -- mParameter = Cb('closed_paren') * namedIdentifiers
 
-  mVariableNonArray = variableIdentifiers
-  mVariableArray = patterns.concat(
-    namedIdentifiers,
-    left_parenth,
-    patterns.one_or_more(
-      patterns.branch(
-        comma,
-        V("mDigit"),
-        V("mVariableArray"),
-        V("mVariableNonArray"),
-        V("mString")
-      )
-    ),
-    right_parenth
+  mVariableNonArray = patterns.capture(variableIdentifiers)
+  mVariableArray = patterns.capture(
+    patterns.concat(
+      namedIdentifiers,
+      left_parenth,
+      patterns.one_or_more(
+        patterns.branch(
+          comma,
+          V("mDigit"),
+          V("mVariableArray"),
+          V("mVariableNonArray"),
+          V("mString")
+        )
+      ),
+      right_parenth
+    )
   )
 
   mVariable = patterns.capture(

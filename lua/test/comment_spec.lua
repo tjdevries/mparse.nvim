@@ -49,5 +49,16 @@ myNotComment() q
  ; i ((option=7)!(option=9)) s encContext("searchParameters","range","overlapping")=1
 ]])
     neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mComment'))
   end)
+
+  it('should handle comments at the end of the line and the next line', function()
+    local parsed = epnf.parsestring(m, [[
+myLabel() ; comment
+  w !,"hello"  ; comment
+  ; another comment
+]])
+    neq(nil, parsed)
+  end)
+
 end)

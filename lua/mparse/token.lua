@@ -15,6 +15,13 @@ local tostring = assert( tostring )
 local setmetatable = assert( setmetatable )
 local setfenv = setfenv
 local getfenv = getfenv
+
+-- luacheck: ignore
+-- Get a nice print for vim, if applicable
+local nvim = (vim or {})
+local nvim = (nvim.api or {})
+local print = nvim.nvim_err_write or print
+
 if V == " 5.1" then
   assert( setfenv )
   assert( getfenv )
@@ -23,6 +30,12 @@ end
 
 -- module table
 local epnf = {}
+epnf.throw_error = false
+-- TODO: Put this in my print statements
+epnf.suppress_messages = false
+
+epnf.max_width = 120
+
 
 -- maximum of two numbers while avoiding math lib as a dependency
 local function max( a, b )
@@ -57,14 +70,19 @@ end
 local function raise_error( n, msg, s, p )
   local line, lno, sol = getline( s, p )
   assert( p <= #s )
-  local clen = max( 70, p+10-sol )
+  local clen = max( epnf.max_width, p+10-sol )
   if #line > clen then
     line = string.sub( line, 1, clen ) .. "..."
   end
   local marker = string.rep( " ", p-sol ) .. "^"
-  error( n..":"..lno..": "..msg.."\n"..line.."\n"..marker, 0 )
-end
+  local final_msg = n..":"..lno..": "..msg.."\n"..line.."\n"..marker.."\n"
 
+  if epnf.throw_error then
+    error(final_msg,  0)
+  else
+    print(final_msg)
+  end
+end
 
 -- parse-error reporting function
 local function parse_error(s, p, n, e)
@@ -77,7 +95,12 @@ local function parse_error(s, p, n, e)
     if string.sub( s, -1, -1 ) ~= "\n" then lno = lno + 1 end
     local msg = ": parse error at <eof>"
     if e then msg = msg .. ", " .. e end
-    error( n..":"..lno..msg, 0 )
+
+    if epnf.throw_error then
+      error( n..":"..lno..msg, 0 )
+    else
+      print( n .. ":" .. lno .. msg)
+    end
   end
 end
 

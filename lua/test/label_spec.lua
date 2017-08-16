@@ -303,5 +303,15 @@ myLabel() ; a comment
         neq(nil, parsed)
       end)
     end)
+
+    describe('If Command ==>', function()
+      it('should handle numbers', function()
+        local parsed = epnf.parsestring(m, [[
+IfLabel() ;
+  i 1 w "true"
+]])
+        neq(nil, parsed)
+      end)
+    end)
   end)
 end)

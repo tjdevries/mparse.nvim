@@ -8,17 +8,21 @@ endfunction
 " TODO:
 " mFunctionArgument
 
+" TODO: Get this programatically from the highlighting plugin
+" it should sent out metadata
 CPHL mCommand Statement - -
-CPHL mDoCommand mCommand - -
-CPHL mWriteCommand mCommand - -
-CPHL mNewCommand mCommand - -
-CPHL mNormalCommand mCommand - -
-CPHL mSetCommand mCommand - -
-CPHL mQuitCommand mCommand - -
+for command_type in ['Do', 'Write', 'New', 'Normal', 'Set', 'Quit', 'If']
+    call execute(printf('CPHL m%sCommand mCommand - -', command_type))
+endfor
 
 CPHL mCommandOperator yellow - -
 
+" We don't actually highlight mvariable directly usually,
+" but we can highlight nonarrays and arrays differently!
 CPHL mVariable blue - -
+CPHL mVariableNonArray mVariable - -
+CPHL mVariableArray blue,dark - -
+
 CPHL mParameter blue - bold
 CPHL mComment Comment - Comment
 CPHL mString String - -
