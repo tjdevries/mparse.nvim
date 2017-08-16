@@ -30,6 +30,8 @@ local function max( a, b )
 end
 
 
+-- TODO: Optimize this with the same string to provide faster parsing
+--
 -- get the line which p points into, the line number and the position
 -- of the beginning of the line
 local function getline( s, p )
@@ -65,7 +67,7 @@ end
 
 
 -- parse-error reporting function
-local function parse_error( s, p, n, e )
+local function parse_error(s, p, n, e)
   if p <= #s then
     local msg = "parse error"
     if e then msg = msg .. ", " .. e end

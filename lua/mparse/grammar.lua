@@ -122,7 +122,11 @@ local arithmeticOperators = patterns.branch(
 -- }}}
 -- Name Identifiers {{{
 local namedIdentifiers = patterns.concat(
+  -- Can optionally start with as '%'
   patterns.one_or_no(patterns.literal('%')),
+  -- Must start with a letter
+  letter,
+  -- Afterwards it can be letters or numbers
   patterns.one_or_more(alphanum)
 )
 
@@ -147,6 +151,10 @@ local calledFunctionIdentifiers = patterns.concat(
 -- }}}
 -- {{{ String Identifiers
 local nonQuoteAscii = patterns.branch(
+  patterns.literal('^'),
+  patterns.literal(';'),
+  patterns.literal(':'),
+  patterns.literal('-'),
   patterns.literal('.'),
   patterns.literal('!'),
   patterns.literal(','),
@@ -155,6 +163,8 @@ local nonQuoteAscii = patterns.branch(
   patterns.literal('%'),
   patterns.literal('('),
   patterns.literal(')'),
+  patterns.literal('['),
+  patterns.literal(']'),
   patterns.literal('*'),
   patterns.literal('='),
   patterns.literal('_'),
@@ -176,11 +186,14 @@ local EOL = patterns.branch(
   patterns.end_of_file
 )
 
-local startOfLine = patterns.branch(
-  patterns.look_behind(patterns.literal('\n')),
-  patterns.look_behind(patterns.literal(''))
+local start_of_line = patterns.concat(
+  patterns.start_of_line,
+  patterns.any_amount(single_space),
+  patterns.any_amount(
+    patterns.literal('.'),
+    single_space
+  )
 )
-
 -- }}}
 -- M grammar, non-recursive and testable items
 
@@ -197,13 +210,17 @@ local m_grammar = epnfs.define( function(_ENV)
   mDigit = patterns.capture(patterns.one_or_more(digit))
   -- }}}
   mComment = patterns.concat( -- {{{
+    patterns.branch(
+      patterns.one_or_no(start_of_line),
+      patterns.any_amount(single_space)
+    ),
     patterns.capture(
       patterns.concat(
         patterns.literal(';'),
         patterns.any_amount(anyCharacter)
       )
     ),
-    EOL
+    patterns.one_or_no(EOL)
   ) -- }}}
   mString = patterns.capture(patterns.concat( -- {{{
     patterns.literal('"'),
@@ -230,7 +247,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- mLabel* {{{
   mLabelName = patterns.capture(namedIdentifiers)
   mLabel = patterns.concat(
-    startOfLine,
+    patterns.start_of_line,
     V("mLabelName"),
     patterns.one_or_no(V("mArgumentDeclaration")),
     single_space,
@@ -265,7 +282,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
   -- TODO: Make a dotted line
   mBodyLine = patterns.concat(
-    patterns.any_amount(whitespace),
+    start_of_line,
     patterns.one_or_more(V("mCommand")),
     patterns.one_or_no(V("mComment")),
     EOL
@@ -273,14 +290,20 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- M Expressions {{{
   mArithmeticOperators = patterns.capture(arithmeticOperators)
+  mArithmeticTokens = patterns.branch(
+    V("mDigit"),
+    V("mString"),
+    V("mVariable"),
+    V("mFunctionCall")
+  )
 
-  mArithmeticExpression = patterns.one_or_more(
-    patterns.branch(
-      V("mDigit"),
-      V("mString"),
-      V("mArithmeticOperators"),
-      V("mVariable"),
-      V("mFunctionCall")
+  mArithmeticExpression = patterns.concat(
+    V("mArithmeticTokens"),
+    patterns.any_amount(
+      patterns.concat(
+        V("mArithmeticOperators"),
+        V("mArithmeticTokens")
+      )
     )
   )
 
@@ -357,13 +380,14 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mWriteCommandArgs")
   )
 
+  -- TODO: Make sure to make the order of these correct and that they are as independent as possible
   _mWriteCommandSection = patterns.branch(
     V("mCommandOperator"),
+    V("mArithmeticExpression"),
+    V("mRelationalExpression"),
     V("mDigit"),
     V("mString"),
     V("mVariable"),
-    V("mRelationalExpression"),
-    V("mArithmeticExpression"),
     V("mFunctionCall")
   )
   mWriteCommandArgs = patterns.branch(
@@ -390,23 +414,26 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mNewCommandArgs")
   )
 
-  mNewCommandArgs = patterns.concat(
+  mNewCommandError = patterns.one_or_no(
+      V("mCapturedError")
+  )
+
+  mNewCommandArgs = patterns.branch(
     patterns.concat(
       V("mVariable"),
-      patterns.branch(
-        patterns.any_amount(
-          patterns.concat(
-            -- TODO: This should not actually be mVariable, since it will capture arrays,
-            --  which shouldn't be allowed to be newed
-            V("mCommandSeparator"),
-            V("mVariable")
+      patterns.any_amount(
+        patterns.concat(
+          -- TODO: This should not actually be mVariable, since it will capture arrays,
+          --  which shouldn't be allowed to be newed
+          V("mCommandSeparator"),
+          patterns.branch(
+            V("mVariable"),
+            V("mNewCommandError")
           )
         )
-        -- E("borken new")
       )
-    )
-    -- TODO: Get mCapturedError to work well
-    -- E("broken variable")
+    ),
+    V("mNewCommandError")
   )
 
   -- }}}
@@ -484,10 +511,19 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mVariable"),
     anyCharacter
   )
-  mCommandFinish = patterns.look_ahead(
-    patterns.branch(
-      whitespace,
-      EOL
+  mCommandFinish = patterns.branch(
+    patterns.look_ahead(
+      patterns.branch(
+        whitespace,
+        EOL
+      )
+    ),
+    -- Still not sure if this captures all the items I'm looking for
+    patterns.one_or_no(
+      patterns.concat(
+        patterns.look_ahead(patterns.end_of_line),
+        E('Unexpected Arguments to command. No previous handling')
+      )
     )
   )
   -- }}}

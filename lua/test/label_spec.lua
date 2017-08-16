@@ -142,21 +142,75 @@ testLabel ; comment
   n myVar,$$errorFunction()
   q
 ]])
-
-    print()
-    print(require('mparse.util').to_string(parsed))
-    print()
         local command = helpers.get_item(parsed, 'id', 'mNewCommand')
         neq(nil, command)
 
         local err = helpers.get_item(command, 'id', 'mCapturedError')
         neq(nil, err)
-        eq(',$$errorFunction()', err.value)
-        eq(#',$$errorFunction()', err.pos.finish - err.pos.start + 1)
+        eq('$$errorFunction()', err.value)
+        eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
+      end)
+
+      it('should show an error for only calling functions', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n $$errorFunction()
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local err = helpers.get_item(command, 'id', 'mCapturedError')
+        neq(nil, err)
+        eq('$$errorFunction()', err.value)
+        eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
+      end)
+
+      it('should show an error for newing numbers', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n myVar,5
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local err = helpers.get_item(command, 'id', 'mCapturedError')
+        neq(nil, err)
+        eq('5', err.value)
+        eq(#'5', err.pos.finish - err.pos.start + 1)
+      end)
+
+      it('should not show an error for newing vars with numbers', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n myVar5
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local err = helpers.get_item(command, 'id', 'mCapturedError')
+        eq(nil, err)
+      end)
+
+      it('should show an error for newing vars that start with numbers', function()
+        local parsed = epnf.parsestring(m, [[
+testLabel ; comment
+  n 5myVar5
+  q
+]])
+        local command = helpers.get_item(parsed, 'id', 'mNewCommand')
+        neq(nil, command)
+
+        local err = helpers.get_item(command, 'id', 'mCapturedError')
+        neq(nil, err)
+        eq('5myVar5', err.value)
+        eq(#'5myVar5', err.pos.finish - err.pos.start + 1)
       end)
     end)
 
-    describe('set command', function()
+    describe('Set Command ==>', function()
       it('should be found when using the set command', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -221,6 +275,8 @@ BasicTest(opt) ;
 
       it('should handle concatenation', function()
         local parsed = epnf.parsestring(m, [[
+  ; comment
+  ; another comment ; comments () "" %$
 BasicTest(opt) ;
     w "hello"_" new world "_opt
 ]])
@@ -235,6 +291,14 @@ myLabel() ; a comment
     n myVar
     w "This or that"
     q myVar
+]])
+        neq(nil, parsed)
+      end)
+
+      it('should handle arithmetic items', function()
+        local parsed = epnf.parsestring(m, [[
+myLabel() ; a comment
+    w 1+5
 ]])
         neq(nil, parsed)
       end)

@@ -53,10 +53,6 @@ patterns.split = function(value, sep)
   return lpeg.match(g_split, value)
 end
 
-patterns.any_character = lpeg.P(1)
-patterns.end_of_file = -lpeg.P(1)
-patterns.end_of_line = lpeg.P"\r"^-1 * lpeg.P"\n"
-
 
 patterns.literal = lpeg.P
 patterns.set = function(...)
@@ -98,6 +94,15 @@ patterns.command_helper = function(s)
     patterns.literal(s:sub(1,1):upper())
   )
 end
+
+patterns.any_character = lpeg.P(1)
+patterns.end_of_file = -lpeg.P(1)
+patterns.end_of_line = lpeg.P"\r"^-1 * lpeg.P"\n"
+patterns.start_of_line = patterns.branch(
+  patterns.look_behind(patterns.literal('\n')),
+  patterns.look_behind(patterns.literal(''))
+)
+
 
 
 -- luacheck: ignore 142
