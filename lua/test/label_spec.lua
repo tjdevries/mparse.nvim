@@ -6,7 +6,7 @@ local m = grammar.m_grammar
 local helpers = require('test.helpers')
 local eq, neq = helpers.eq, helpers.neq
 
-describe('mLabel', function()
+describe('mLabel:', function()
   it('should return then ast even with comments before it', function()
     local parsed = epnf.parsestring(m, [[
 ; this shoudn't mess things up
@@ -101,7 +101,7 @@ testLabel ; comment
     -- eq(label.value, 'testLabel')
   end)
 
-  describe('command detection', function()
+  describe('[Command Detection]', function()
     describe('do command', function()
       it('should notice function calls for do functions without $$', function()
         local parsed = epnf.parsestring(m, [[
@@ -194,6 +194,19 @@ testLabel ; comment
         local command = helpers.get_item(parsed, 'id', 'mSetCommand')
         neq(nil, command)
         neq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
+      end)
+    end)
+
+    describe('Write Command ==>', function()
+      it('should handle multiple operators', function()
+        local parsed = epnf.parsestring(m, [[
+BasicTest(opt) ;
+    w "hello",!,"new line",5!
+]])
+        print()
+        print(require('mparse.util').to_string(parsed))
+        print()
+        neq(nil, parsed)
       end)
     end)
   end)

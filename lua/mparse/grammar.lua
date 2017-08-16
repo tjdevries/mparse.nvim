@@ -230,7 +230,7 @@ local m_grammar = epnfs.define( function(_ENV)
     startOfLine,
     V("mLabelName"),
     patterns.one_or_no(V("mArgumentDeclaration")),
-    whitespace,
+    single_space,
     V("mBody")
   )
   -- }}}
@@ -263,8 +263,8 @@ local m_grammar = epnfs.define( function(_ENV)
   -- TODO: Make a dotted line
   mBodyLine = patterns.concat(
     patterns.any_amount(whitespace),
-    V("mCommand"),
-    patterns.any_amount(patterns.any_character),
+    patterns.one_or_more(V("mCommand")),
+    patterns.one_or_no(V("mComment")),
     EOL
   )
   -- }}}
@@ -320,18 +320,6 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mDoCommandArgs = V("mDoFunctionCall")
-  mDoFunctionCall = patterns.concat(
-    patterns.capture(calledFunctionIdentifiers),
-    left_parenth,
-    patterns.any_amount(
-      patterns.branch(
-        comma,
-        V("mArithmeticExpression")
-      )
-    ),
-    right_parenth
-  )
-
   -- }}}
   -- Set Commands {{{
   mSetCommand = patterns.concat(
@@ -362,28 +350,33 @@ local m_grammar = epnfs.define( function(_ENV)
   mWriteCommand = patterns.concat(
     patterns.capture(writeCommand),
     patterns.one_or_no(V("mPostConditional")),
-    whitespace,
+    single_space,
     V("mWriteCommandArgs")
   )
 
   _mWriteCommandSection = patterns.branch(
+    V("mCommandOperator"),
+    V("mDigit"),
     V("mString"),
     V("mVariable"),
     V("mRelationalExpression"),
     V("mArithmeticExpression"),
     V("mFunctionCall")
   )
-  mWriteCommandArgs = patterns.concat(
-    V("_mWriteCommandSection"),
-    patterns.any_amount(
-      patterns.concat(
-        patterns.branch(
-          concatenationOperators,
-          V("mCommandSeparator")
-        ),
-        V("_mWriteCommandSection")
+  mWriteCommandArgs = patterns.branch(
+    patterns.concat(
+      V("_mWriteCommandSection"),
+      patterns.any_amount(
+        patterns.concat(
+          patterns.branch(
+            concatenationOperators,
+            V("mCommandSeparator")
+          ),
+          V("_mWriteCommandSection")
+        )
       )
-    )
+    ),
+    V("mCapturedError")
   )
   -- }}}
   -- New Commands {{{
@@ -463,7 +456,10 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- All Commands {{{
   mCommandSeparator = patterns.capture(comma)
-  mCommandOperator = V("mDigit") * patterns.capture(commandOperator)
+  mCommandOperator = patterns.concat(
+    patterns.one_or_no(V("mDigit")),
+    patterns.capture(commandOperator)
+  )
   mCommandArgs = patterns.branch(
     V("mCommandSeparator"),
     V("mFunctionCall"),
@@ -484,7 +480,7 @@ local m_grammar = epnfs.define( function(_ENV)
     )
   )
   -- }}}
-
+  -- mVariables {{{
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
@@ -512,7 +508,8 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mVariableArray")
     )
   )
-
+  -- }}}
+  -- mFunctions {{{
   mFunctionCall = patterns.capture(
     patterns.concat(
       patterns.branch(
@@ -522,16 +519,28 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mDoFunctionCall")
     )
   )
+  mDoFunctionCall = patterns.concat(
+    patterns.capture(calledFunctionIdentifiers),
+    left_parenth,
+    patterns.any_amount(
+      patterns.branch(
+        comma,
+        V("mArithmeticExpression")
+      )
+    ),
+    right_parenth
+  )
 
-  -- Extra
-
+  -- }}}
+  -- Errors {{{
   mError = (1 - EOL) ^ 1
   mCapturedError = patterns.capture(patterns.one_or_no(V("mError")))
+  -- }}}
 end)
 
-return {
+return { -- {{{
   m_grammar=m_grammar,
 
   -- If parameter finding enabled
   parameters_enabled=false,
-}
+} -- }}}

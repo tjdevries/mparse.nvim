@@ -77,8 +77,7 @@ MyLabel(arg1) ;
 MyLabel() ;
   q 1
 ]])
-    print()
-    print(require('mparse.util').to_string(parsed))
-    print()
+    neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mQuitCommand'))
   end)
 end)
