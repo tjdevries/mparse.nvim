@@ -8,6 +8,7 @@ local util = require('mparse.util')
 
 local cache = require('mparse.cache')
 
+-- TODO: Generate this automatically at runtime.
 local src_id = 25832
 
 local highlighter = {}

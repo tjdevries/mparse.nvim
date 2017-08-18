@@ -1,4 +1,4 @@
-local lpeg = require('lpeg')
+local lpeg = require('mparse.lpeg')
 
 local epnfs = require('mparse.token')
 

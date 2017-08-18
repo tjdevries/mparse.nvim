@@ -150,24 +150,33 @@ local calledFunctionIdentifiers = patterns.concat(
 -- }}}
 -- {{{ String Identifiers
 local nonQuoteAscii = patterns.branch(
-  patterns.literal('^'),
-  patterns.literal(';'),
-  patterns.literal(':'),
-  patterns.literal('-'),
-  patterns.literal('.'),
   patterns.literal('!'),
-  patterns.literal(','),
   patterns.literal('#'),
   patterns.literal('$'),
   patterns.literal('%'),
+  patterns.literal('&'),
   patterns.literal('('),
   patterns.literal(')'),
-  patterns.literal('['),
-  patterns.literal(']'),
   patterns.literal('*'),
+  patterns.literal('+'),
+  patterns.literal(','),
+  patterns.literal('-'),
+  patterns.literal('.'),
+  patterns.literal('/'),
+  patterns.literal(':'),
+  patterns.literal(';'),
+  patterns.literal('<'),
   patterns.literal('='),
+  patterns.literal('>'),
+  patterns.literal('['),
+  patterns.literal('\''),
+  patterns.literal(']'),
+  patterns.literal('^'),
   patterns.literal('_'),
-  patterns.literal('\'')
+  patterns.literal('`'),
+  patterns.literal('{'),
+  patterns.literal('}'),
+  patterns.literal('~')
 )
 
 local stringCharacter = patterns.branch(
@@ -185,44 +194,116 @@ local EOL = patterns.branch(
   patterns.end_of_file
 )
 
+-- local start_of_line = patterns.capture(
 local start_of_line = patterns.concat(
   patterns.start_of_line,
   patterns.any_amount(single_space),
   patterns.any_amount(
-    patterns.literal('.'),
-    single_space
+    patterns.concat(
+      patterns.literal('.'),
+      single_space
+    )
   )
 )
--- }}}
--- M grammar, non-recursive and testable items
 
--- ordered choice of all tokens and last-resort error which consumes one character
+local captured_single_space = patterns.capture(single_space)
+-- }}}
 -- luacheck: no unused args
 local m_grammar = epnfs.define( function(_ENV)
+  -- Helper functions for the grammar {{{
   local error_capture = function(msg)
     return patterns.branch(E(msg), V("mCapturedError"))
   end
 
-  -- START is an operative made from epnfs
+  local ternary = function(condition, if_true, if_false)
+    if condition then
+      return if_true
+    else
+      return if_false
+    end
+  end
+
+  local command_generator = function(options)
+    if options.name == nil then
+      error('options needs "name"')
+    end
+    local name = options.name
+    local error_message = options.error_message
+
+    if options.starting_pattern == nil then
+      error('options needs "starting_pattern"')
+    end
+    local starting_pattern = options.starting_pattern
+
+    if options.argument_pattern == nil then
+      error('options needs "argument_pattern"')
+    end
+    local argument_pattern = options.argument_pattern
+
+
+    -- Determine whether to use post conditional
+    local accepts_post_conditional = true
+    if options.accepts_post_conditional ~= nil then
+      accepts_post_conditional = options.accepts_post_conditional
+    end
+
+    local post_conditional_pattern = patterns.one_or_no(V("mPostConditional"))
+    if not accepts_post_conditional then
+      local post_conditional_pattern = nil
+    end
+
+    local whitespace_pattern = single_space
+    if options.whitespace_pattern ~= nil then
+      whitespace_pattern = options.whitespace_pattern
+    end
+
+    -- Get the command args set up
+    local disable_optional_argument_parenths = options.disable_optional_argument_parenths or false
+    local complete_argument_pattern = ternary(
+      disable_optional_argument_parenths,
+      patterns.branch(
+        argument_pattern,
+        patterns.concat(
+          patterns.optional_surrounding_parenths(argument_pattern),
+          E(string.format("Surrounding parenths not allowed in: '%s'", name))
+        )
+      ),
+      patterns.optional_surrounding_parenths(argument_pattern)
+    )
+
+    return patterns.concat(
+      patterns.capture(starting_pattern),
+      post_conditional_pattern,
+      whitespace_pattern,
+      patterns.branch(
+        complete_argument_pattern,
+        error_capture(error_message or string.format("Error while parsing: '%s'", name))
+      )
+    )
+  end
+  -- }}}
+  -- START is an operative made from epnfs {{{
   -- luacheck: globals START
   START "mFile"
-
+  -- }}}
   -- Basic Definitions {{{
   -- {{{ mDigit
   mDigit = patterns.capture(patterns.one_or_more(digit))
   -- }}}
   mComment = patterns.concat( -- {{{
-    patterns.branch(
-      patterns.one_or_no(start_of_line),
-      patterns.any_amount(single_space)
-    ),
     patterns.capture(
+      -- TODO: Don't highlight dots like comments
       patterns.concat(
+        patterns.branch(
+          patterns.one_or_no(start_of_line),
+          patterns.any_amount(captured_single_space)
+        ),
         patterns.literal(';'),
-        patterns.any_amount(anyCharacter)
+        -- Anything up to end of line
+        patterns.any_amount(anyCharacter - EOL)
       )
     ),
-    patterns.one_or_no(EOL)
+    EOL
   ) -- }}}
   mString = patterns.capture(patterns.concat( -- {{{
     patterns.literal('"'),
@@ -248,12 +329,14 @@ local m_grammar = epnfs.define( function(_ENV)
   ) -- }}}
   -- mLabel* {{{
   mLabelName = patterns.capture(namedIdentifiers)
-  mLabel = patterns.concat(
-    patterns.start_of_line,
-    V("mLabelName"),
-    patterns.one_or_no(V("mArgumentDeclaration")),
-    single_space,
-    V("mBody")
+  mLabel = patterns.capture(
+    patterns.concat(
+      patterns.start_of_line,
+      V("mLabelName"),
+      patterns.one_or_no(V("mArgumentDeclaration")),
+      single_space,
+      V("mBody")
+    )
   )
   -- }}}
   -- mArgument* {{{
@@ -275,16 +358,28 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- mBody* {{{
   -- Group for body
-  mBody = patterns.one_or_more(
+  mBody = patterns.concat(
+    patterns.one_or_more(
+      patterns.branch(
+        V("mComment"),
+        V("mBodyLine")
+      )
+    ),
+    -- The body ends when a file ends
+    -- Or we see a new label coming up
     patterns.branch(
-      V("mBodyLine"),
-      V("mComment")
+      #patterns.end_of_file,
+      #V("mLabel")
     )
   )
 
-  -- TODO: Make a dotted line
+  -- TODO: I want body line to never fail and to send an error when it encounters unparseable items
   mBodyLine = patterns.concat(
     start_of_line,
+    -- patterns.branch(
+    --   patterns.one_or_more(V("mCommand"))
+    --   error_capture("Broken body line") * EOL
+    -- ),
     patterns.one_or_more(V("mCommand")),
     patterns.branch(
       V("mComment"),
@@ -349,36 +444,35 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mCommandFinish")
   ) -- }}}
   -- Do Commands {{{
-  mDoCommand = patterns.concat(
-    patterns.capture(doCommand),
-    patterns.one_or_no(V("mPostConditional")),
-    whitespace,
-    patterns.branch(
-      V("mDoCommandArgs"),
-      error_capture("Can't find that dang do command args")
-    )
-  )
+  mDoCommand = command_generator({
+    name = 'DoCommand',
+    starting_pattern = doCommand,
+    argument_pattern = V("mDoCommandArgs"),
+
+    disable_optional_argument_parenths = true,
+  })
 
   mDoCommandArgs = V("mDoFunctionCall")
   -- }}}
   -- If Commands {{{
   -- TODO: Else, else if
-  mIfCommand = patterns.concat(
-    patterns.capture(ifCommand),
-    whitespace,
-    patterns.branch(
-      patterns.concat(
-        patterns.optional_surrounding(
-          left_parenth,
-          right_parenth,
-          V("mIfCommandArgs")
-        ),
-        whitespace,
-        V("mCommand")
+  mIfCommand = command_generator({
+    name = 'IfCommand',
+    starting_pattern = ifCommand,
+
+    argument_pattern = patterns.concat(
+      patterns.optional_surrounding(
+        left_parenth,
+        right_parenth,
+        V("mIfCommandArgs")
       ),
-      error_capture("Error in ifCommand")
-    )
-  )
+      whitespace,
+      V("mCommand")
+    ),
+
+    accepts_post_conditional = false,
+    disable_optional_argument_parenths = true,
+  })
 
   _mIfCommandSection = patterns.branch(
     V("mArithmeticExpression"),
@@ -400,21 +494,17 @@ local m_grammar = epnfs.define( function(_ENV)
 
   -- }}}
   -- Set Commands {{{
-  mSetCommand = patterns.concat(
-    patterns.capture(setCommand),
-    patterns.one_or_no(V("mPostConditional")),
-    whitespace,
-    V("mSetCommandArgs")
-  )
+  mSetCommand = command_generator({
+    name = 'SetCommand',
+    starting_pattern = setCommand,
+    argument_pattern = V("mSetCommandArgs"),
+  })
 
-  mSetCommandArgs = patterns.branch(
-    patterns.one_or_more(
-      patterns.branch(
-        V("mCommandSeparator"),
-        V("mSetExpression")
-      )
-    ),
-    patterns.one_or_no(error_capture("error in mSetCommandArgs"))
+  mSetCommandArgs = patterns.one_or_more(
+    patterns.branch(
+      V("mCommandSeparator"),
+      V("mSetExpression")
+    )
   )
 
   -- variable=generalExpression
@@ -425,12 +515,11 @@ local m_grammar = epnfs.define( function(_ENV)
   )
   -- }}}
   -- Write Commands {{{
-  mWriteCommand = patterns.concat(
-    patterns.capture(writeCommand),
-    patterns.one_or_no(V("mPostConditional")),
-    single_space,
-    V("mWriteCommandArgs")
-  )
+  mWriteCommand = command_generator({
+    name = 'WriteCommand',
+    starting_pattern = writeCommand,
+    argument_pattern = V("mWriteCommandArgs"),
+  })
 
   -- TODO: Make sure to make the order of these correct and that they are as independent as possible
   _mWriteCommandSection = patterns.branch(
@@ -440,86 +529,76 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mDigit"),
     V("mString"),
     V("mVariable"),
-    V("mFunctionCall")
+    V("mFunctionCall"),
+    error_capture("Not a valid write command sequence")
   )
-  mWriteCommandArgs = patterns.branch(
-    patterns.concat(
-      V("_mWriteCommandSection"),
-      patterns.any_amount(
-        patterns.concat(
-          patterns.branch(
-            V("mConcatenationOperators"),
-            V("mCommandSeparator")
-          ),
-          V("_mWriteCommandSection")
-        )
+  mWriteCommandArgs = patterns.concat(
+    V("_mWriteCommandSection"),
+    patterns.any_amount(
+      patterns.concat(
+        patterns.branch(
+          V("mConcatenationOperators"),
+          V("mCommandSeparator")
+        ),
+        V("_mWriteCommandSection")
       )
-    ),
-    error_capture("Error in mWriteCommandArgs")
+    )
   )
   -- }}}
   -- New Commands {{{
-  mNewCommand = patterns.concat(
-    patterns.capture(newCommand),
-    patterns.one_or_no(V("mPostConditional")),
-    single_space,
-    V("mNewCommandArgs")
-  )
+  mNewCommand = command_generator({
+    name = 'NewCommand',
+    starting_pattern = newCommand,
+    argument_pattern = V("mNewCommandArgs"),
+  })
 
-  mNewCommandError = patterns.one_or_no(
-      V("mCapturedError")
-  )
-
-  mNewCommandArgs = patterns.branch(
-    patterns.concat(
-      V("mVariable"),
-      patterns.any_amount(
-        patterns.concat(
-          -- TODO: This should not actually be mVariable, since it will capture arrays,
-          --  which shouldn't be allowed to be newed
-          V("mCommandSeparator"),
-          patterns.branch(
-            V("mVariable"),
-            V("mNewCommandError")
-          )
+  mNewCommandArgs = patterns.concat(
+    V("mVariable"),
+    patterns.any_amount(
+      patterns.concat(
+        -- TODO: This should not actually be mVariable, since it will capture arrays,
+        --  which shouldn't be allowed to be newed
+        V("mCommandSeparator"),
+        patterns.branch(
+          V("mVariable"),
+          error_capture("Not a valid item to set in SetCommand")
         )
       )
-    ),
-    V("mNewCommandError")
+    )
   )
 
   -- }}}
   -- Quit Commands {{{
-  mQuitCommand = patterns.concat(
-    patterns.capture(quitCommand),
-    patterns.one_or_no(V("mPostConditional")),
-    patterns.branch(
-      patterns.one_or_no(
-        patterns.concat(
-          single_space,
-          V("mQuitCommandArgs")
-        )
-      ),
-      V("mCapturedError")
-    )
-  )
+  mQuitCommand = command_generator({
+    name = 'QuitCommand',
+    starting_pattern = quitCommand,
+    argument_pattern = V("mQuitCommandArgs"),
+    whitespace_pattern = patterns.one_or_no(single_space),
+  })
 
   -- Any arithmetic expression should work I think
   -- TODO: Might want to have a better name for this, like string concatenation, etc.
-  mQuitCommandArgs = patterns.capture(
+  mQuitCommandArgs = patterns.concat(
     patterns.branch(
-      V("mArithmeticExpression"),
-      V("mString")
+      patterns.end_of_line,
+      patterns.concat(
+        patterns.look_behind(single_space),
+        patterns.capture(
+          patterns.branch(
+            V("mArithmeticExpression"),
+            V("mString")
+          )
+        )
+      )
     )
   )
   -- }}}
   -- {{{ Normal Command
-  mNormalCommand = patterns.concat(
-    patterns.capture(normalCommands),
-    patterns.one_or_no(V("mPostConditional")),
-    whitespace,
-    patterns.one_or_no(V("mCommandArgs"))
-  )
+  mNormalCommand = command_generator({
+    name = 'Generic Command',
+    starting_pattern = normalCommands,
+    argument_pattern = V("mCommandArgs")
+  })
   -- }}}
   -- Post Conditionals {{{
   mPostConditionalSeparator = patterns.capture(patterns.literal(':'))

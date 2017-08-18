@@ -79,6 +79,13 @@ patterns.optional_surrounding = function(start, finish, v)
     v
   )
 end
+patterns.optional_surrounding_parenths = function(v)
+  return patterns.optional_surrounding(
+    patterns.literal('('),
+    patterns.literal(')'),
+    v
+  )
+end
 
 patterns.capture = function(a)
   return C(a)
