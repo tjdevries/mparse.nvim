@@ -16,7 +16,6 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     local label = helpers.get_item(parsed, 'id', 'mLabel')
     neq(label, nil)
     eq(label.id, "mLabel")
-    eq(label.value, nil)
 
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
@@ -311,6 +310,24 @@ IfLabel() ;
   i 1 w "true"
 ]])
         neq(nil, parsed)
+      end)
+    end)
+
+    describe('Quit Command ==>', function()
+      it('should handle one letter functions', function()
+        local parsed = epnf.parsestring(m, [[
+QuitLabel(myVar) q $d(myVar)
+]])
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mFunctionCall'))
+      end)
+
+      it('should handle functions with conditionals', function()
+        local parsed = epnf.parsestring(m, [[
+QuitLabel() q $s(0:"nope",1:"yup")
+]])
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mFunctionCall'))
       end)
     end)
   end)

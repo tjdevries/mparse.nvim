@@ -126,7 +126,7 @@ local namedIdentifiers = patterns.concat(
   -- Must start with a letter
   letter,
   -- Afterwards it can be letters or numbers
-  patterns.one_or_more(alphanum)
+  patterns.any_amount(alphanum)
 )
 
 -- Variables can't have "(" at the end of their name
@@ -151,6 +151,7 @@ local calledFunctionIdentifiers = patterns.concat(
 -- {{{ String Identifiers
 local nonQuoteAscii = patterns.branch(
   patterns.literal('!'),
+  patterns.literal('?'),
   patterns.literal('#'),
   patterns.literal('$'),
   patterns.literal('%'),
@@ -585,6 +586,7 @@ local m_grammar = epnfs.define( function(_ENV)
         patterns.look_behind(single_space),
         patterns.capture(
           patterns.branch(
+            V("mFunctionCall"),
             V("mArithmeticExpression"),
             V("mString")
           )
@@ -705,7 +707,17 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.any_amount(
       patterns.branch(
         comma,
-        V("mArithmeticExpression")
+        patterns.concat(
+          patterns.one_or_no(
+            patterns.concat(
+              patterns.optional_surrounding_parenths(
+                V("mRelationalExpression")
+              ),
+              V("mPostConditionalSeparator")
+            )
+          ),
+          V("mArithmeticExpression")
+        )
       )
     ),
     right_parenth
