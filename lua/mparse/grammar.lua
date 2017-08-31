@@ -389,11 +389,15 @@ local m_grammar = epnfs.define( function(_ENV)
   -- M Expressions {{{
   mArithmeticOperators = patterns.capture(arithmeticOperators)
   mConcatenationOperators = patterns.capture(concatenationOperators)
-  mArithmeticTokens = patterns.branch(
-    V("mDigit"),
-    V("mString"),
-    V("mVariable"),
-    V("mFunctionCall")
+  mRelationalOperators = patterns.capture(relationalOperators)
+
+  mArithmeticTokens = patterns.optional_surrounding_parenths(
+    patterns.branch(
+      V("mDigit"),
+      V("mString"),
+      V("mVariable"),
+      V("mFunctionCall")
+    )
   )
 
   mArithmeticExpression = patterns.concat(
@@ -402,6 +406,7 @@ local m_grammar = epnfs.define( function(_ENV)
       patterns.concat(
         patterns.branch(
           V("mConcatenationOperators"),
+          V("mRelationalOperators"),
           V("mArithmeticOperators")
         ),
         V("mArithmeticTokens")
@@ -409,29 +414,15 @@ local m_grammar = epnfs.define( function(_ENV)
     )
   )
 
-  mValidExpression = patterns.branch(
+  mConditionalExpression = patterns.concat(
+    V("mArithmeticExpression"),
+    V("mPostConditionalSeparator"),
     V("mArithmeticExpression")
   )
 
-  mConditionalExpression = patterns.concat(
-    V("mValidExpression"),
-    V("mPostConditionalSeparator"),
-    V("mValidExpression")
-  )
-
-  mInnerRelationalExpression = patterns.optional_surrounding(
-    left_parenth,
-    right_parenth,
-    patterns.concat(
-      V("mValidExpression"),
-      relationalOperators,
-      V("mValidExpression")
-    )
-  )
-  mRelationalExpression = patterns.optional_surrounding(
-    left_parenth,
-    right_parenth,
-    patterns.any_amount(V("mInnerRelationalExpression"))
+  mValidExpression = patterns.branch(
+    V("mArithmeticExpression"),
+    V("mConditionalExpression")
   )
   -- }}}
   mCommand = patterns.concat( -- {{{
@@ -478,7 +469,6 @@ local m_grammar = epnfs.define( function(_ENV)
   })
 
   _mIfCommandSection = patterns.branch(
-    V("mRelationalExpression"),
     V("mConditionalExpression"),
     V("mValidExpression")
   )
@@ -526,7 +516,6 @@ local m_grammar = epnfs.define( function(_ENV)
   _mWriteCommandSection = patterns.branch(
     V("mCommandOperator"),
     V("mArithmeticExpression"),
-    V("mRelationalExpression"),
     V("mDigit"),
     V("mString"),
     V("mVariable"),
@@ -604,7 +593,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- Post Conditionals {{{
   mPostConditionalSeparator = patterns.capture(patterns.literal(':'))
-  mPostConditionalExpression = V("mRelationalExpression")
+  mPostConditionalExpression = V("mArithmeticExpression")
 
   -- TODO: Match the parenths
   mPostConditional = patterns.concat(

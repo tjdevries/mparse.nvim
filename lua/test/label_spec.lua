@@ -139,6 +139,16 @@ doLabel() ;
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
         eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
       end)
+
+      it('should allow relationals in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d myFunc(myVar<thatVar)
+  q
+]])
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
+      end)
     end)
 
     describe('New command ==>', function()
