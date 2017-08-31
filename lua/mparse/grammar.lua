@@ -311,8 +311,6 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.any_amount(stringCharacter),
     patterns.literal('"')
   ))
-
-  mConcatenationOperators = patterns.capture(concatenationOperators)
   -- }}}
   -- }}}
   -- {{{ mFile
@@ -390,6 +388,7 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- M Expressions {{{
   mArithmeticOperators = patterns.capture(arithmeticOperators)
+  mConcatenationOperators = patterns.capture(concatenationOperators)
   mArithmeticTokens = patterns.branch(
     V("mDigit"),
     V("mString"),
@@ -401,25 +400,17 @@ local m_grammar = epnfs.define( function(_ENV)
     V("mArithmeticTokens"),
     patterns.any_amount(
       patterns.concat(
-        V("mArithmeticOperators"),
-        V("mArithmeticTokens")
-      )
-    )
-  )
-
-  mStringExpression = patterns.concat(
-    V("mArithmeticTokens"),
-    patterns.any_amount(
-      patterns.concat(
-        V("mConcatenationOperators"),
+        patterns.branch(
+          V("mConcatenationOperators"),
+          V("mArithmeticOperators")
+        ),
         V("mArithmeticTokens")
       )
     )
   )
 
   mValidExpression = patterns.branch(
-    V("mArithmeticExpression"),
-    V("mStringExpression")
+    V("mArithmeticExpression")
   )
 
   mConditionalExpression = patterns.concat(
@@ -715,9 +706,9 @@ local m_grammar = epnfs.define( function(_ENV)
     left_parenth,
     patterns.any_amount(
       patterns.branch(
-        comma,
         V("mConditionalExpression"),
-        V("mValidExpression")
+        V("mValidExpression"),
+        comma
       )
     ),
     right_parenth

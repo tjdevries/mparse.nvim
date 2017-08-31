@@ -105,7 +105,7 @@ testLabel ; comment
   end)
 
   describe('[Command Detection]', function()
-    describe('do command', function()
+    describe('Do command ==>', function()
       it('should notice function calls for do functions without $$', function()
         local parsed = epnf.parsestring(m, [[
 ; comment
@@ -116,9 +116,32 @@ testLabel ; comment
         local do_func = helpers.get_item(parsed, 'id', 'mDoFunctionCall')
         neq(nil, do_func)
       end)
+
+      it('should allow string concatenation in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d myFunc("concatenate"_myVar)
+]])
+        neq(nil, parsed)
+        print()
+        print(require('mparse.util').to_string(parsed))
+        print()
+        neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
+        eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
+      end)
+
+      it('should allow addition in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d myFunc(firstVar+myVar+"hello"+3)
+]])
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
+        eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
+      end)
     end)
 
-    describe('new command', function()
+    describe('New command ==>', function()
       it('should allow for defining variables', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
