@@ -250,7 +250,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
     local post_conditional_pattern = patterns.one_or_no(V("mPostConditional"))
     if not accepts_post_conditional then
-      local post_conditional_pattern = nil
+      post_conditional_pattern = patterns.look_ahead(patterns.any_character)
     end
 
     local whitespace_pattern = single_space
@@ -409,7 +409,7 @@ local m_grammar = epnfs.define( function(_ENV)
 
   mStringExpression = patterns.concat(
     V("mArithmeticTokens"),
-    patterns.one_or_more(
+    patterns.any_amount(
       patterns.concat(
         V("mConcatenationOperators"),
         V("mArithmeticTokens")
@@ -420,6 +420,12 @@ local m_grammar = epnfs.define( function(_ENV)
   mValidExpression = patterns.branch(
     V("mArithmeticExpression"),
     V("mStringExpression")
+  )
+
+  mConditionalExpression = patterns.concat(
+    V("mValidExpression"),
+    V("mPostConditionalSeparator"),
+    V("mValidExpression")
   )
 
   mInnerRelationalExpression = patterns.optional_surrounding(
@@ -472,7 +478,7 @@ local m_grammar = epnfs.define( function(_ENV)
         right_parenth,
         V("mIfCommandArgs")
       ),
-      whitespace,
+      single_space,
       V("mCommand")
     ),
 
@@ -481,13 +487,11 @@ local m_grammar = epnfs.define( function(_ENV)
   })
 
   _mIfCommandSection = patterns.branch(
-    V("mArithmeticExpression"),
     V("mRelationalExpression"),
-    V("mDigit"),
-    -- V("mString"),
-    V("mVariable"),
-    V("mFunctionCall")
+    V("mConditionalExpression"),
+    V("mValidExpression")
   )
+
   mIfCommandArgs = patterns.concat(
     V("_mIfCommandSection"),
     patterns.any_amount(
@@ -712,18 +716,8 @@ local m_grammar = epnfs.define( function(_ENV)
     patterns.any_amount(
       patterns.branch(
         comma,
-        patterns.concat(
-          patterns.one_or_no(
-            patterns.concat(
-              patterns.optional_surrounding_parenths(
-                V("mRelationalExpression")
-              ),
-              V("mPostConditionalSeparator")
-            )
-          ),
-          V("mValidExpression")
-        ),
-        V("mRelationalExpression")
+        V("mConditionalExpression"),
+        V("mValidExpression")
       )
     ),
     right_parenth

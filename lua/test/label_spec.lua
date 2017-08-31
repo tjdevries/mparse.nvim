@@ -308,6 +308,16 @@ myLabel() ; a comment
         local parsed = epnf.parsestring(m, [[
 IfLabel() ;
   i 1 w "true"
+  q
+]])
+        neq(nil, parsed)
+      end)
+
+      it('should handle addition', function()
+        local parsed = epnf.parsestring(m, [[
+IfLabel2() ;
+  i myVar+23 w "TRUE"
+  q
 ]])
         neq(nil, parsed)
       end)
