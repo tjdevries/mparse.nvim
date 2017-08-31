@@ -396,6 +396,7 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mDigit"),
       V("mString"),
       V("mVariable"),
+      V("mVariableByReference"),
       V("mFunctionCall")
     )
   )
@@ -678,6 +679,11 @@ local m_grammar = epnfs.define( function(_ENV)
       V("mVariableNonArray"),
       V("mVariableArray")
     )
+  )
+
+  mVariableByReference = patterns.capture(
+    patterns.literal('.'),
+    V("mVariableNonArray")
   )
   -- }}}
   -- mFunctions {{{

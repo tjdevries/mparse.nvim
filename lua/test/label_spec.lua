@@ -149,6 +149,16 @@ doLabel() ;
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
       end)
+
+      it('should allow dotted references in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d myFunc(.myVar)
+  q
+]])
+        neq(nil, parsed)
+        neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
+      end)
     end)
 
     describe('New command ==>', function()
