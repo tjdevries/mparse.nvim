@@ -408,22 +408,27 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mStringExpression = patterns.concat(
-    V("mString"),
+    V("mArithmeticTokens"),
     patterns.one_or_more(
       patterns.concat(
         V("mConcatenationOperators"),
-        V("mString")
+        V("mArithmeticTokens")
       )
     )
+  )
+
+  mValidExpression = patterns.branch(
+    V("mArithmeticExpression"),
+    V("mStringExpression")
   )
 
   mInnerRelationalExpression = patterns.optional_surrounding(
     left_parenth,
     right_parenth,
     patterns.concat(
-      V("mArithmeticExpression"),
+      V("mValidExpression"),
       relationalOperators,
-      V("mArithmeticExpression")
+      V("mValidExpression")
     )
   )
   mRelationalExpression = patterns.optional_surrounding(
@@ -716,13 +721,13 @@ local m_grammar = epnfs.define( function(_ENV)
               V("mPostConditionalSeparator")
             )
           ),
-          V("mArithmeticExpression")
-        )
+          V("mValidExpression")
+        ),
+        V("mRelationalExpression")
       )
     ),
     right_parenth
   )
-
   -- }}}
   -- Errors {{{
   mError = (1 - EOL) ^ 1

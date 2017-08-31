@@ -32,7 +32,6 @@ MyLabel(arg1,arg2) n hello
     local label = helpers.get_item(parsed, 'id', 'mLabel')
     neq(label, nil)
     eq(label.id, "mLabel")
-    eq(label.value, nil)
 
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
@@ -50,7 +49,6 @@ MyLabel(arg1,arg2) n hello
     local label = helpers.get_item(parsed, 'id', 'mLabel')
     neq(label, nil)
     eq(label.id, "mLabel")
-    eq(label.value, nil)
 
     local labelName = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(labelName.id, "mLabelName")
@@ -72,7 +70,6 @@ MyLabel(arg1) ;
     local label = helpers.get_item(parsed, 'id', 'mLabel')
     neq(label, nil)
     eq(label.id, "mLabel")
-    eq(label.value, nil)
   end)
 
   it('should allow quitting with numbers', function()
