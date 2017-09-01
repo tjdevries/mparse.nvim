@@ -118,6 +118,14 @@ local arithmeticOperators = patterns.branch(
   patterns.literal('\\'), -- Integer division
   patterns.literal('#')   -- Modulo division
 )
+
+local anyOperator = patterns.branch(
+  relationalOperators,
+  logicalOperators,
+  concatenationOperators,
+  setCommandOperators,
+  arithmeticOperators
+)
 -- }}}
 -- Name Identifiers {{{
 local namedIdentifiers = patterns.concat(
@@ -391,27 +399,25 @@ local m_grammar = epnfs.define( function(_ENV)
   mConcatenationOperators = patterns.capture(concatenationOperators)
   mRelationalOperators = patterns.capture(relationalOperators)
   mLogicalOperators = patterns.capture(logicalOperators)
+  mOperator = patterns.capture(anyOperator)
 
-  mArithmeticTokens = patterns.optional_surrounding_parenths(
-    patterns.branch(
-      V("mDigit"),
-      V("mString"),
-      V("mVariable"),
-      V("mVariableByReference"),
-      V("mFunctionCall")
+  mArithmeticTokens = patterns.capture(
+    patterns.optional_surrounding_parenths(
+      patterns.branch(
+        V("mFunctionCall"),
+        V("mVariableByReference"),
+        V("mVariable"),
+        V("mDigit"),
+        V("mString")
+      )
     )
   )
 
   mArithmeticExpression = patterns.concat(
     V("mArithmeticTokens"),
     patterns.any_amount(
-      patterns.concat(
-        patterns.branch(
-          V("mConcatenationOperators"),
-          V("mRelationalOperators"),
-          V("mArithmeticOperators"),
-          V("mLogicalOperators")
-        ),
+      patterns.branch(
+        V("mOperator"),
         V("mArithmeticTokens")
       )
     )
@@ -424,8 +430,8 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   mValidExpression = patterns.branch(
-    V("mArithmeticExpression"),
-    V("mConditionalExpression")
+    V("mConditionalExpression"),
+    V("mArithmeticExpression")
   )
   -- }}}
   mCommand = patterns.concat( -- {{{
@@ -505,7 +511,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mSetExpression = patterns.concat(
     V("mVariable"),
     setCommandOperators,
-    V("mArithmeticExpression")
+    V("mValidExpression")
   )
   -- }}}
   -- Write Commands {{{
@@ -516,24 +522,13 @@ local m_grammar = epnfs.define( function(_ENV)
   })
 
   -- TODO: Make sure to make the order of these correct and that they are as independent as possible
-  _mWriteCommandSection = patterns.branch(
-    V("mCommandOperator"),
-    V("mArithmeticExpression"),
-    V("mDigit"),
-    V("mString"),
-    V("mVariable"),
-    V("mFunctionCall"),
-    error_capture("Not a valid write command sequence")
-  )
   mWriteCommandArgs = patterns.concat(
-    V("_mWriteCommandSection"),
+    V("mValidExpression"),
     patterns.any_amount(
-      patterns.concat(
-        patterns.branch(
-          V("mConcatenationOperators"),
-          V("mCommandSeparator")
-        ),
-        V("_mWriteCommandSection")
+      patterns.branch(
+        V("mCommandOperator"),
+        V("mCommandSeparator"),
+        V("mValidExpression")
       )
     )
   )
@@ -703,7 +698,6 @@ local m_grammar = epnfs.define( function(_ENV)
     left_parenth,
     patterns.any_amount(
       patterns.branch(
-        V("mConditionalExpression"),
         V("mValidExpression"),
         comma
       )

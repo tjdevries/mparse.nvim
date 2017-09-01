@@ -123,9 +123,6 @@ doLabel() ;
   d myFunc("concatenate"_myVar)
 ]])
         neq(nil, parsed)
-        print()
-        print(require('mparse.util').to_string(parsed))
-        print()
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
         eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
       end)
@@ -162,7 +159,7 @@ doLabel() ;
 
       it('should allow equals in the call', function()
         local parsed = epnf.parsestring(m, [[
-doLabel()
+doLabel() ;
   d myFunc(1=2,"hello")
   q
 ]])
@@ -171,8 +168,17 @@ doLabel()
 
       it('should allow conditionals in the call', function()
         local parsed = epnf.parsestring(m, [[
-doLabel()
+doLabel() ;
   d myFunc(1=2:"hello",1:"goodbye")
+  q
+]])
+        neq(nil, parsed)
+      end)
+
+      it('should allow blank commas in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d myFunc("hello",,"world")
   q
 ]])
         neq(nil, parsed)
@@ -335,7 +341,6 @@ BasicTest(opt) ;
 
       it('should handle concatenation', function()
         local parsed = epnf.parsestring(m, [[
-  ; comment
   ; another comment ; comments () "" %$
 BasicTest(opt) ;
     w "hello"_" new world "_opt
