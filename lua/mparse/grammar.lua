@@ -390,6 +390,7 @@ local m_grammar = epnfs.define( function(_ENV)
   mArithmeticOperators = patterns.capture(arithmeticOperators)
   mConcatenationOperators = patterns.capture(concatenationOperators)
   mRelationalOperators = patterns.capture(relationalOperators)
+  mLogicalOperators = patterns.capture(logicalOperators)
 
   mArithmeticTokens = patterns.optional_surrounding_parenths(
     patterns.branch(
@@ -408,7 +409,8 @@ local m_grammar = epnfs.define( function(_ENV)
         patterns.branch(
           V("mConcatenationOperators"),
           V("mRelationalOperators"),
-          V("mArithmeticOperators")
+          V("mArithmeticOperators"),
+          V("mLogicalOperators")
         ),
         V("mArithmeticTokens")
       )

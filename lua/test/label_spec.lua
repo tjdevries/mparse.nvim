@@ -159,6 +159,24 @@ doLabel() ;
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
       end)
+
+      it('should allow equals in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel()
+  d myFunc(1=2,"hello")
+  q
+]])
+        neq(nil, parsed)
+      end)
+
+      it('should allow conditionals in the call', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel()
+  d myFunc(1=2:"hello",1:"goodbye")
+  q
+]])
+        neq(nil, parsed)
+      end)
     end)
 
     describe('New command ==>', function()
