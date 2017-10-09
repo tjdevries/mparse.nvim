@@ -16,27 +16,28 @@ for command_type in ['Do', 'Write', 'New', 'Normal', 'Set', 'Quit', 'If']
 endfor
 
 CPHL mCommandOperator yellow - -
+CPHL mSetCommandOperator mCommandOperator mCommandOperator mCommandOperator
 
 " We don't actually highlight mvariable directly usually,
 " but we can highlight nonarrays and arrays differently!
 CPHL mVariable blue - -
-CPHL mVariableNonArray mVariable - -
-CPHL mVariableArray blue,dark - -
+CPHL mVariableNonArray blue0 - -
+CPHL mVariableIndirect blue0 - -
+CPHL mVariableArray blue1 - -
 
-CPHL mParameter blue - bold
+CPHL mParameter blue2 - bold
+
 CPHL mComment Comment - Comment
-CPHL mString String - -
-CPHL mDigit Number - -
-CPHL mLabelName purple - -
+CPHL mString green - -
+CPHL mDigit blue0 - -
+CPHL mLabelName orange1 - -
 
-CPHL mPrefixFuncionCall blue - -
-
-CPHL mFunctionCall orange - -
-CPHL mDoFunctionCall mFunctionCall,dark - -
+CPHL mFunctionCall yellow - -
+CPHL mDoFunctionCall orange - -
 
 " CPHL mError Error - -
 CPHL mCapturedError white red underline
 " CPHL mBuiltinFunctionCall
 
 " Operators
-CPHL mPostConditionalSeparator Operator - -
+CPHL mPostConditionalSeparator red0 - -
