@@ -28,10 +28,10 @@ end
 
 local to_string = function(tbl)
   -- Use penlight if we've got it
-  local w = require('pl.pretty').write
+  local w = require('pl.pretty')
 
   if w then
-    return w(tbl)
+    return w.write(tbl)
   end
 
   return function ( tbl )
