@@ -1,5 +1,5 @@
--- thanks to
--- github.com epnfs.lua
+-- I have changed several things in this file, but the majority of the ideas and compat between versions 
+-- is thanks to: github.com epnfs.lua
 
 local L = require('mparse.lpeg')
 
@@ -65,7 +65,7 @@ local function getline( s, p )
   return string.sub( s, sol, eol ), lno, sol
 end
 
-
+-- Error reporting {{{
 -- raise an error during semantic validation of the ast
 local function raise_error( n, msg, s, p )
   local line, lno, sol = getline( s, p )
@@ -103,6 +103,7 @@ local function parse_error(s, p, n, e)
     end
   end
 end
+-- }}}
 
 local function make_ast_node( id, pos, t )
   t.id = id
@@ -136,21 +137,10 @@ end
 
 
 -- some useful/common lpeg patterns
-local L_Cp = L.Cp()
 local L_Carg_1 = L.Carg( 1 )
 local function E( msg )
   return L.Cmt( L_Carg_1 * L.Cc( msg ), parse_error )
 end
-local function EOF( msg )
-  return -L.P( 1 ) + E( msg )
-end
-local letter = L.R( "az", "AZ" ) + L.P"_"
-local digit = L.R"09"
-local ID = L.C( letter * (letter+digit)^0 )
-local function W( s )
-  return L.P( s ) * -(letter+digit)
-end
-local WS = L.S" \r\n\t\f\v"
 
 
 -- setup an environment where you can easily define lpeg grammars
@@ -171,17 +161,8 @@ function epnf.define( func, g, e )
       end
     end,
     E = E,
-    EOF = EOF,
-    ID = ID,
-    W = W,
-    WS = WS,
   }
-  -- copy lpeg shortcuts
-  for k,v in pairs( L ) do
-    if string.match( k, "^%u%w*$" ) then
-      env_index[ k ] = v
-    end
-  end
+
   setmetatable( env_index, { __index = e } )
   setmetatable( env, {
     __index = env_index,
@@ -189,7 +170,7 @@ function epnf.define( func, g, e )
       if suppressed[ name ] then
         g[ name ] = val
       else
-        g[ name ] = (L.Cc( name ) * L_Cp * L.Ct( val )) / make_ast_node
+        g[ name ] = (L.Cc( name ) * L.Cp() * L.Ct( val )) / make_ast_node
       end
     end
   } )

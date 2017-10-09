@@ -6,7 +6,7 @@
 --  Use lpeg whenever available, otherwise lulpeg.
 
 -- Imports {{{
-local epnfs = require('mparse.token')
+local token = require('mparse.token')
 local patterns = require('mparse.patterns')
 
 local V = patterns.V
@@ -158,6 +158,7 @@ local calledFunctionIdentifiers = patterns.concat(
 -- }}}
 -- {{{ String Identifiers
 local nonQuoteAscii = patterns.branch(
+  patterns.literal('@'),
   patterns.literal('!'),
   patterns.literal('?'),
   patterns.literal('#'),
@@ -218,7 +219,7 @@ local start_of_line = patterns.concat(
 local captured_single_space = patterns.capture(single_space)
 -- }}}
 -- luacheck: no unused args
-local m_grammar = epnfs.define( function(_ENV)
+local m_grammar = token.define(function(_ENV)
   -- Helper functions for the grammar {{{
   local error_capture = function(msg)
     return patterns.branch(E(msg), V("mCapturedError"))
@@ -291,9 +292,11 @@ local m_grammar = epnfs.define( function(_ENV)
     )
   end
   -- }}}
-  -- START is an operative made from epnfs {{{
+  -- START is an operative made from token {{{
   -- luacheck: globals START
   START "mFile"
+  -- luacheck: globals SUPPRESS
+  SUPPRESS "mParameterFinder"
   -- }}}
   -- Basic Definitions {{{
   -- {{{ mDigit
@@ -351,14 +354,20 @@ local m_grammar = epnfs.define( function(_ENV)
 
   mArgumentDeclaration = patterns.concat(
     left_parenth,
-    patterns.capture(patterns.one_or_no(
-      patterns.concat(
-        V("mFunctionArgument"),
-        patterns.any_amount(
-          patterns.concat(comma, V("mFunctionArgument"))
+    patterns.capture(
+      patterns.group_capture(
+        patterns.one_or_no(
+          patterns.concat(
+            V("mFunctionArgument"),
+            patterns.any_amount(
+              patterns.concat(comma, V("mFunctionArgument"))
+            )
+          )
         )
-      )
-    )),
+      ),
+      -- Name of the group
+      "functionArguments"
+    ),
     right_parenth,
     #whitespace
   )
@@ -401,15 +410,13 @@ local m_grammar = epnfs.define( function(_ENV)
   mLogicalOperators = patterns.capture(logicalOperators)
   mOperator = patterns.capture(anyOperator)
 
-  mArithmeticTokens = patterns.capture(
-    patterns.optional_surrounding_parenths(
-      patterns.branch(
-        V("mFunctionCall"),
-        V("mVariableByReference"),
-        V("mVariable"),
-        V("mDigit"),
-        V("mString")
-      )
+  mArithmeticTokens = patterns.optional_surrounding_parenths(
+    patterns.branch(
+      V("mString"),
+      V("mFunctionCall"),
+      V("mVariableByReference"),
+      V("mVariable"),
+      V("mDigit")
     )
   )
 
@@ -508,9 +515,10 @@ local m_grammar = epnfs.define( function(_ENV)
   )
 
   -- variable=generalExpression
+  mSetOperator = patterns.capture(setCommandOperators)
   mSetExpression = patterns.concat(
     V("mVariable"),
-    setCommandOperators,
+    V("mSetOperator"),
     V("mValidExpression")
   )
   -- }}}
@@ -571,13 +579,7 @@ local m_grammar = epnfs.define( function(_ENV)
       patterns.end_of_line,
       patterns.concat(
         patterns.look_behind(single_space),
-        patterns.capture(
-          patterns.branch(
-            V("mFunctionCall"),
-            V("mArithmeticExpression"),
-            V("mString")
-          )
-        )
+        V("mValidExpression")
       )
     )
   )
@@ -591,22 +593,20 @@ local m_grammar = epnfs.define( function(_ENV)
   -- }}}
   -- Post Conditionals {{{
   mPostConditionalSeparator = patterns.capture(patterns.literal(':'))
-  mPostConditionalExpression = V("mArithmeticExpression")
+  mPostConditionalExpression = patterns.optional_surrounding_parenths(V("mValidExpression"))
 
   -- TODO: Match the parenths
   mPostConditional = patterns.concat(
     V("mPostConditionalSeparator"),
-    patterns.capture(
-      patterns.concat(
-        V("mPostConditionalExpression"),
-        patterns.any_amount(
-          patterns.concat(
-            patterns.branch(logicalOperators, comma),
-            V("mPostConditionalExpression")
-          )
-        ),
-        #whitespace
-      )
+    patterns.concat(
+      V("mPostConditionalExpression"),
+      patterns.any_amount(
+        patterns.concat(
+          patterns.branch(logicalOperators, comma),
+          V("mPostConditionalExpression")
+        )
+      ),
+      #whitespace
     )
   )
   -- }}}
@@ -652,29 +652,68 @@ local m_grammar = epnfs.define( function(_ENV)
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
   -- mParameter = Cb('closed_paren') * namedIdentifiers
+  -- mParameter = patterns.back_capture('functionArguments')
+  mParameter = patterns.function_capture(V("mVariableNonArray"), function (string, index, left, right)
+    print('================================================================================')
+    print('s:', string)
+    print('i:', index)
+    print('@:', string[index])
+    print('l:', require('mparse.util').to_string(left))
+    print('r:', right)
+
+    if pcall(patterns.back_capture('functionArguments')) then
+      print('B:', patterns.back_capture('functionArguments'))
+    else
+      print('B:', 'Nope')
+    end
+    print('================================================================================')
+    return false
+  end)
 
   mVariableNonArray = patterns.capture(variableIdentifiers)
   mVariableArray = patterns.capture(
     patterns.concat(
-      namedIdentifiers,
+      patterns.branch(
+        patterns.concat(
+          patterns.literal('@'),
+          V("mValidExpression"),
+          patterns.literal('@')
+        ),
+        namedIdentifiers
+      ),
       left_parenth,
       patterns.one_or_more(
         patterns.branch(
           comma,
-          V("mDigit"),
-          V("mVariableArray"),
-          V("mVariableNonArray"),
-          V("mString")
+          V("mValidExpression")
         )
       ),
       right_parenth
     )
   )
-
+  mVariableIndirect = patterns.concat(
+    patterns.capture(
+      patterns.concat(
+        patterns.literal('@'),
+        patterns.optional_surrounding_parenths(V("mValidExpression"))
+      )
+    ),
+    -- Should not end with an '@'. That's an array indirection
+    patterns.neg_look_ahead(patterns.literal('@')),
+    patterns.look_ahead(
+      patterns.branch(
+        V("mCommandSeparator"),
+        patterns.end_of_line,
+        patterns.end_of_file
+      )
+    )
+  )
   mVariable = patterns.capture(
     patterns.branch(
-      V("mVariableNonArray"),
+      -- V("mParameter") ,
       V("mVariableArray")
+      , V("mVariableNonArray")
+      , V("mVariableIndirect")
     )
   )
 

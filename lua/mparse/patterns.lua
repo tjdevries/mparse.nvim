@@ -25,6 +25,9 @@ local patterns = {}
 
 patterns.V = function(item) return lpeg.V(item) end
 patterns.table_capture = function(item) return lpeg.Ct(item) end
+patterns.group_capture = Cg
+patterns.back_capture = lpeg.Cb
+patterns.function_capture = lpeg.Cmt
 
 -- Determines if the start, finish are closed
 -- and creates a group capture of "name"
