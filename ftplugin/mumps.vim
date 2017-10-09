@@ -1,4 +1,12 @@
+" ftplugin/mumps.vim
+"
+" Useful for getting mumps code to look good :)
+" It has a few "epic-specifics" in here, like looking for compiler directives.
+" And extra information from folds
+"
+" Author: tjdevries
 
+" Settings: {{{
 " We use custom syntax highlighting. No need to even run the syntax command
 syntax clear
 
@@ -7,31 +15,66 @@ setlocal commentstring=;%s
 setlocal nocursorline
 setlocal nonumber
 setlocal norelativenumber
+" }}}
+" Autocomds: {{{
+augroup mparse/highlight
+  autocmd!
 
-" TODO: Allow the user to configure how often they want highlighting to run
+  " TODO: Allow the user to configure how often they want highlighting to run
+  autocmd BufEnter,BufReadPost,BufWritePost <buffer> call MHighlight()
 
-augroup mparse
-    autocmd!
-    autocmd BufEnter,BufReadPost,BufWritePost <buffer> call MHighlight()
-
-    " TODO: Call this to only incrementally highlight.
-    " Don't highlight anything before this line.
-    " Try not to highlight anything AFTER this label as well
-    autocmd CursorHold <buffer> silent! call MHighlight()
-augroup END
-
-
+  " TODO: Call this to only incrementally highlight.
+  " Don't highlight anything before this line.
+  " Try not to highlight anything AFTER this label as well
+  autocmd CursorHold <buffer> silent! call MHighlight()
+augroup END " }}}
+" Mappings: {{{
 inoremap <buffer><expr> <CR> mparse#mappings#insert_enter()
-
-" Folding:
+" }}}
+" Folding: {{{
 setlocal foldmethod=expr
 setlocal foldexpr=MFoldExpr(v:lnum)
 setlocal foldtext=MFoldText()
 
 let s:label_match = '^\%[%]\w\+'
 let s:comment_match = '^\s\+;'
+let s:compiler_directive_match = '^\s\+;;#'
 
-function! MFoldText(...) abort
+function! s:get_scope(lines) abort " {{{
+  for line in a:lines
+    let scope = matchlist(line, 'SCOPE:\s*\(\w*\)')[1]
+
+    if scope != ""
+      break
+    endif
+
+  endfor
+
+  return scope
+endfunction " }}}
+function! s:get_desc(lines) abort "{{{
+  for line in a:lines
+    let desc = matchlist(line, 'DESC\w*: \(.*\)')[1]
+
+    if desc != ""
+      break
+    endif
+  endfor
+
+  return desc
+endfunction "}}}
+function! s:get_name(lines) abort " {{{
+  for line in a:lines
+    let name = matchstr(line, s:label_match)
+
+    if name != ""
+      break
+    endif
+  endfor
+
+  return name
+endfunction " }}}
+function! MFoldText(...) abort " {{{
   let start = get(a:000, 0, v:foldstart)
   let end = get(a:000, 1, v:foldend)
 
@@ -63,47 +106,14 @@ function! MFoldText(...) abort
   let text .= repeat(' ', padding) . ' \' . repeat('_', 200)
 
   return text
-endfunction
-
-function! s:get_scope(lines) abort
-  for line in a:lines
-    let scope = matchlist(line, 'SCOPE: \(\w*\)')[1]
-
-    if scope != ""
-      break
-    endif
-
-  endfor
-
-  return scope
-endfunction
-
-function! s:get_desc(lines) abort
-  for line in a:lines
-    let desc = matchlist(line, 'DESC\w*: \(.*\)')[1]
-
-    if desc != ""
-      break
-    endif
-  endfor
-
-  return desc
-endfunction
-
-function! s:get_name(lines) abort
-  for line in a:lines
-    let name = matchstr(line, s:label_match)
-
-    if name != ""
-      break
-    endif
-  endfor
-
-  return name
-endfunction
-
-function! MFoldExpr(line_number) abort
+endfunction " }}}
+function! MFoldExpr(line_number) abort " {{{
   let lnum = a:line_number
+  let line = getline(lnum)
+
+  if match(line, s:compiler_directive_match) != -1
+    return 0
+  endif
 
   if lnum == 1
     return '>1'
@@ -112,8 +122,6 @@ function! MFoldExpr(line_number) abort
   if lnum == line('$')
     return '<1'
   endif
-
-  let line = getline(lnum)
 
   " If it's a label, it's a 1
   if match(line, s:label_match) != -1
@@ -167,4 +175,5 @@ function! MFoldExpr(line_number) abort
   endif
 
   return 1
-endfunction
+endfunction " }}}
+" }}}
