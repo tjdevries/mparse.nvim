@@ -347,7 +347,7 @@ BasicTest(opt) ;
 ]])
         neq(nil, parsed)
         local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
-        neq(nil, helpers.get_item(command, 'id', 'mConcatenationOperators'))
+        eq('"hello"', helpers.get_item(command, 'id', 'mString').value)
       end)
 
       it('should handle other commands with it', function()
@@ -404,6 +404,13 @@ QuitLabel() q $s(0:"nope",1:"yup")
 ]])
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mFunctionCall'))
+      end)
+
+      it('should handle adding functions', function()
+        local parsed = epnf.parsestring(m, [[
+QuitLabel() q $$func1()+$$func2()
+]])
+        neq(nil, parsed)
       end)
     end)
   end)
