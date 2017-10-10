@@ -1,3 +1,4 @@
+local table_print
 function table_print (tt, indent, done)
   done = done or {}
   indent = indent or 0
@@ -28,28 +29,28 @@ end
 
 local to_string = function(tbl)
   -- Use penlight if we've got it
-  local ok, w = pcall("require('pl.pretty').write")
+  local ok = pcall("require('pl.pretty').write")
 
   if ok then
-    return w(tbl)
+    return require('pl.pretty').write(tbl)
   end
 
-  return function ( tbl )
-    if  "nil"       == type( tbl ) then
+  return (function(item)
+    if  "nil"       == type( item ) then
       return tostring(nil)
-    elseif  "table" == type( tbl ) then
-      return table_print(tbl)
-    elseif  "string" == type( tbl ) then
+    elseif  "table" == type( item ) then
+      return table_print(item)
+    elseif  "string" == type( item ) then
       return tbl
     else
       return tostring(tbl)
     end
-  end
+  end)(tbl)
 end
 
 local t_concat = function(t1, t2)
   local t3 = {unpack(t1)}
-  local I
+
   for I = 1,#t2 do
     t3[#t1 + I] = t2[I]
   end
@@ -66,10 +67,8 @@ local contains = function(table, element)
   return false
 end
 
-
 return {
-  contains=contains,
-  t_concat=t_concat,
-  mark=mark,
-  to_string=to_string,
+  contains  = contains,
+  t_concat  = t_concat,
+  to_string = to_string,
 }

@@ -210,6 +210,16 @@ function epnf.parsestring( g, str, ... )
   return epnf.parse( g, name, str, ... )
 end
 
+-- parse a string, but its known that it is an incremental section of the string
+-- so you must also specify a starting line
+function epnf.parse_incremental(g, str, transform, ...)
+  local s = string.sub(str, 1, 20)
+  epnf.current_string = str
+  if #s < #str then s = s .. "..." end
+  local name = "[\"" .. string.gsub( s, "\n", "\\n" ) .. "\"]"
+  return epnf.parse( g, name, str, ... )
+end
+
 
 local function write( ... ) return io.stderr:write( ... ) end
 local function dump_ast( node, prefix )
