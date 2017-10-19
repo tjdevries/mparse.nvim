@@ -1,6 +1,6 @@
 # mparse.nvim
 
-![media/SimpleHighlights.PNG](Example highlight)
+![Example Highlight](./media/SimpleHighlights.PNG)
 
 lpeg based parser -> highlighter for m in nvim
 
