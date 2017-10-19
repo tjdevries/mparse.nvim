@@ -1,5 +1,7 @@
 # mparse.nvim
 
+![media/SimpleHighlights.PNG](Example highlight)
+
 lpeg based parser -> highlighter for m in nvim
 
 Includes a (slower) version of LPEG in this repository. 
