@@ -80,4 +80,12 @@ myLabel() ; comment
     eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#compDir#')
     eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#compDir# hello')
   end)
+
+  it('should not find compiler directives further in the line', function()
+    local parsed = epnf.parsestring(m, [[
+;; #compDir# hello
+]])
+    neq(nil, parsed)
+    eq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
+  end)
 end)

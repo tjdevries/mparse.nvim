@@ -302,7 +302,7 @@ local m_grammar = token.define(function(_ENV)
   -- {{{ mDigit
   mDigit = patterns.capture(patterns.one_or_more(digit))
   -- }}}
-  -- Compiler directives are only used within mComments
+  -- Compiler directives are only used within "mComment"
   mCompilerDirective = patterns.capture(
     patterns.concat(
       patterns.literal('#')
