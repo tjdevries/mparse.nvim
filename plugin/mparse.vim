@@ -28,6 +28,8 @@ CPHL mVariableArray blue1 - -
 CPHL mParameter blue2 - bold
 
 CPHL mComment Comment - Comment
+CPHL mCompilerDirective purple - bold
+
 CPHL mString green - -
 CPHL mDigit blue0 - -
 CPHL mLabelName orange1 - -

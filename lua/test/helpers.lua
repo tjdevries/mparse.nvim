@@ -1,5 +1,10 @@
 local assert = require('luassert')
 
+-- Default to not printing anything during the tests.
+-- We can turn it on or off for specific tests if we want
+local token = require('mparse.token')
+token.print_error = false
+
 local eq = function(exp, act)
   return assert.are.same(exp, act)
 end

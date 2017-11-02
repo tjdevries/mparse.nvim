@@ -10,23 +10,23 @@ local neq = helpers.neq
 -- TODO: Shift to m.mComment to parse these
 describe('comment', function()
   it('should accept easy strings', function()
-    local parsed = epnf.parsestring(m.mComment, [[; this is a comment]])
+    local parsed = helpers.get_item(epnf.parsestring(m, [[; this is a comment]]), 'id', 'mComment')
     neq(nil, parsed)
     eq('mComment', parsed.id)
     eq('; this is a comment', parsed.value)
   end)
 
   it('should be fine with special characters', function()
-    local parsed = epnf.parsestring(m.mComment, [[; "this" ! is all comment __]])
+    local parsed = helpers.get_item(epnf.parsestring(m, [[; "this" ! is all comment __]]), 'id', 'mComment')
     neq(nil, parsed)
     eq('mComment', parsed.id)
     eq('; "this" ! is all comment __', parsed.value)
   end)
 
   it('should not include the extra items', function()
-    local parsed = epnf.parsestring(m.mComment, [[; this is a comment
+    local parsed = helpers.get_item(epnf.parsestring(m, [[; this is a comment
 myNotComment() q
-]])
+]]), 'id', 'mComment')
 
     neq(nil, parsed)
     eq('mComment', parsed.id)
@@ -61,4 +61,23 @@ myLabel() ; comment
     neq(nil, parsed)
   end)
 
+  it('should handle compiler directives', function()
+    local parsed = epnf.parsestring(m, [[
+;#compDir# hello
+]])
+    neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
+    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#compDir#')
+    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';#compDir# hello')
+  end)
+
+  it('should handle compiler directives with two ;', function()
+    local parsed = epnf.parsestring(m, [[
+;;#compDir# hello
+]])
+    neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
+    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#compDir#')
+    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#compDir# hello')
+  end)
 end)

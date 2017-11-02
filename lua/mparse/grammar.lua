@@ -302,6 +302,15 @@ local m_grammar = token.define(function(_ENV)
   -- {{{ mDigit
   mDigit = patterns.capture(patterns.one_or_more(digit))
   -- }}}
+  -- Compiler directives are only used within mComments
+  mCompilerDirective = patterns.capture(
+    patterns.concat(
+      patterns.literal('#')
+      , patterns.any_amount(letter)
+      , patterns.literal('#')
+    )
+  )
+
   mComment = patterns.concat( -- {{{
     patterns.capture(
       -- TODO: Don't highlight dots like comments
@@ -311,6 +320,8 @@ local m_grammar = token.define(function(_ENV)
           patterns.any_amount(captured_single_space)
         ),
         patterns.literal(';'),
+        patterns.one_or_no(patterns.literal(';')),
+        patterns.one_or_no(V("mCompilerDirective")),
         -- Anything up to end of line
         patterns.any_amount(anyCharacter - EOL)
       )
@@ -421,6 +432,12 @@ local m_grammar = token.define(function(_ENV)
   )
 
   mArithmeticExpression = patterns.concat(
+    patterns.one_or_no(
+      patterns.branch(
+        V("mLogicalOperators")
+        , V("mArithmeticOperators")
+      )
+    ),
     V("mArithmeticTokens"),
     patterns.any_amount(
       patterns.branch(

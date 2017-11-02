@@ -31,6 +31,7 @@ end
 -- module table
 local epnf = {}
 epnf.throw_error = false
+epnf.print_error = true
 -- TODO: Put this in my print statements
 epnf.suppress_messages = false
 
@@ -79,7 +80,7 @@ local function raise_error( n, msg, s, p )
 
   if epnf.throw_error then
     error(final_msg,  0)
-  else
+  elseif epnf.print_error then
     print(final_msg)
   end
 end
@@ -98,7 +99,7 @@ local function parse_error(s, p, n, e)
 
     if epnf.throw_error then
       error( n..":"..lno..msg, 0 )
-    else
+    elseif epnf.print_error then
       print( n .. ":" .. lno .. msg)
     end
   end
