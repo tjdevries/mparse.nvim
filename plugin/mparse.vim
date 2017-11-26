@@ -8,6 +8,10 @@ endfunction
 " TODO:
 " mFunctionArgument
 
+if !exists(':CPHL')
+    finish
+endif
+
 " TODO: Get this programatically from the highlighting plugin
 " it should sent out metadata
 CPHL mCommand Statement - -

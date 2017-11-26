@@ -24,7 +24,6 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     eq(labelName.pos.finish, 47)
     eq(labelName.pos.line_number, 2)
   end)
-
   it('should find the arguments inside of the label', function()
     local parsed = epnf.parsestring(m, [[
 ; this shoudn't mess things up
@@ -56,7 +55,6 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
       eq(param.pos, {start=120, finish=123})
     end
   end)
-
   it('should not think everything is a parameter', function()
     local parsed = epnf.parsestring(m, [[
 ; this shoudn't mess things up
@@ -78,7 +76,6 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     eq(notParam.value, 'notParameter')
     eq(notParam.id, 'mVariable')
   end)
-
   it('should get lowercased labels', function()
     local parsed = epnf.parsestring(m, [[
 ; doesn't matter
@@ -91,7 +88,6 @@ getLowerCase(arg) ; comment
     local label = helpers.get_item(parsed, 'id', 'mLabelName')
     eq(label.value, 'getLowerCase')
   end)
-
   it('should detect labels without arguments', function()
     local parsed = epnf.parsestring(m, [[
 ; just a comment
@@ -103,7 +99,6 @@ testLabel ; comment
     neq(nil, label)
     -- eq(label.value, 'testLabel')
   end)
-
   describe('[Command Detection]', function()
     describe('Do command ==>', function()
       it('should notice function calls for do functions without $$', function()
@@ -116,7 +111,6 @@ testLabel ; comment
         local do_func = helpers.get_item(parsed, 'id', 'mDoFunctionCall')
         neq(nil, do_func)
       end)
-
       it('should allow string concatenation in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -126,7 +120,6 @@ doLabel() ;
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
         eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
       end)
-
       it('should allow addition in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -136,7 +129,6 @@ doLabel() ;
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
         eq('myFunc', helpers.get_item(parsed, 'id', 'mDoFunctionCall').value)
       end)
-
       it('should allow relationals in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -146,7 +138,6 @@ doLabel() ;
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
       end)
-
       it('should allow dotted references in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -156,7 +147,6 @@ doLabel() ;
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mDoFunctionCall'))
       end)
-
       it('should allow equals in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -165,7 +155,6 @@ doLabel() ;
 ]])
         neq(nil, parsed)
       end)
-
       it('should allow conditionals in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -174,7 +163,6 @@ doLabel() ;
 ]])
         neq(nil, parsed)
       end)
-
       it('should allow blank commas in the call', function()
         local parsed = epnf.parsestring(m, [[
 doLabel() ;
@@ -184,7 +172,6 @@ doLabel() ;
         neq(nil, parsed)
       end)
     end)
-
     describe('New command ==>', function()
       it('should allow for defining variables', function()
         local parsed = epnf.parsestring(m, [[
@@ -201,7 +188,6 @@ testLabel ; comment
 
         eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
-
       it('should show an error for calling functions', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -216,7 +202,6 @@ testLabel ; comment
         eq('$$errorFunction()', err.value)
         eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
       end)
-
       it('should show an error for only calling functions', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -231,7 +216,6 @@ testLabel ; comment
         eq('$$errorFunction()', err.value)
         eq(#'$$errorFunction()', err.pos.finish - err.pos.start + 1)
       end)
-
       it('should show an error for newing numbers', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -246,7 +230,6 @@ testLabel ; comment
         eq('5', err.value)
         eq(#'5', err.pos.finish - err.pos.start + 1)
       end)
-
       it('should not show an error for newing vars with numbers', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -259,7 +242,6 @@ testLabel ; comment
         local err = helpers.get_item(command, 'id', 'mCapturedError')
         eq(nil, err)
       end)
-
       it('should show an error for newing vars that start with numbers', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -275,7 +257,6 @@ testLabel ; comment
         eq(#'5myVar5', err.pos.finish - err.pos.start + 1)
       end)
     end)
-
     describe('Set Command ==>', function()
       it('should be found when using the set command', function()
         local parsed = epnf.parsestring(m, [[
@@ -288,7 +269,6 @@ testLabel ; comment
 
         eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
-
       it('should be found when using the set command and adding a number', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -299,7 +279,6 @@ testLabel ; comment
         neq(nil, command)
         eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
-
       it('should be found when using the set command and adding a function', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -314,7 +293,6 @@ testLabel ; comment
 
         eq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
-
       it('should find errors when using set command incorrectly', function()
         local parsed = epnf.parsestring(m, [[
 testLabel ; comment
@@ -326,7 +304,6 @@ testLabel ; comment
         neq(nil, helpers.get_item(command, 'id', 'mCapturedError'))
       end)
     end)
-
     describe('Write Command ==>', function()
       it('should handle multiple operators', function()
         local parsed = epnf.parsestring(m, [[
@@ -338,7 +315,6 @@ BasicTest(opt) ;
         neq(nil, helpers.get_item(parsed, 'id', 'mCommandOperator'))
         eq('!', helpers.get_item(parsed, 'id', 'mCommandOperator').value)
       end)
-
       it('should handle concatenation', function()
         local parsed = epnf.parsestring(m, [[
   ; another comment ; comments () "" %$
@@ -349,7 +325,6 @@ BasicTest(opt) ;
         local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
         eq('"hello"', helpers.get_item(command, 'id', 'mString').value)
       end)
-
       it('should handle other commands with it', function()
         local parsed = epnf.parsestring(m, [[
 myLabel() ; a comment
@@ -359,7 +334,6 @@ myLabel() ; a comment
 ]])
         neq(nil, parsed)
       end)
-
       it('should handle arithmetic items', function()
         local parsed = epnf.parsestring(m, [[
 myLabel() ; a comment
@@ -368,7 +342,6 @@ myLabel() ; a comment
         neq(nil, parsed)
       end)
     end)
-
     describe('If Command ==>', function()
       it('should handle numbers', function()
         local parsed = epnf.parsestring(m, [[
@@ -378,7 +351,6 @@ IfLabel() ;
 ]])
         neq(nil, parsed)
       end)
-
       it('should handle addition', function()
         local parsed = epnf.parsestring(m, [[
 IfLabel2() ;
@@ -388,7 +360,6 @@ IfLabel2() ;
         neq(nil, parsed)
       end)
     end)
-
     describe('Quit Command ==>', function()
       it('should handle one letter functions', function()
         local parsed = epnf.parsestring(m, [[
@@ -397,7 +368,6 @@ QuitLabel(myVar) q $d(myVar)
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mFunctionCall'))
       end)
-
       it('should handle functions with conditionals', function()
         local parsed = epnf.parsestring(m, [[
 QuitLabel() q $s(0:"nope",1:"yup")
@@ -405,7 +375,6 @@ QuitLabel() q $s(0:"nope",1:"yup")
         neq(nil, parsed)
         neq(nil, helpers.get_item(parsed, 'id', 'mFunctionCall'))
       end)
-
       it('should handle adding functions', function()
         local parsed = epnf.parsestring(m, [[
 QuitLabel() q $$func1()+$$func2()
