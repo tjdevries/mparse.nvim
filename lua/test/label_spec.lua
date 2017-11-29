@@ -341,6 +341,14 @@ myLabel() ; a comment
 ]])
         neq(nil, parsed)
       end)
+      it('should handle zw as a write command', function()
+        local parsed = epnf.parsestring(m, [[
+myLabel() ; comment
+  zw myArray
+]])
+        neq(nil, parsed)
+        eq('zw', helpers.get_item(parsed, 'id', 'mWriteCommand').value)
+      end)
     end)
     describe('If Command ==>', function()
       it('should handle numbers', function()

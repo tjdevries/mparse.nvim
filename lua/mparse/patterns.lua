@@ -113,7 +113,20 @@ patterns.start_of_line = patterns.branch(
   patterns.look_behind(patterns.literal(''))
 )
 
-
+patterns.subset_expression = function(tokens, operators)
+  return patterns.concat(
+    patterns.one_or_no(
+      operators
+    ),
+    tokens,
+    patterns.any_amount(
+      patterns.branch(
+        operators
+        , tokens
+      )
+    )
+  )
+end
 
 -- luacheck: ignore 142
 function string:split(s)

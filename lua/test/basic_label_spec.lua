@@ -11,12 +11,10 @@ describe('labelName', function()
   it('should work for good stuff', function()
     neq(nil, epnf.parsestring(m.mLabelName, 'MyLabel'))
   end)
-
   it('should not accept ()', function()
     neq(nil, epnf.parsestring(m.mLabelName, 'MyLabel()'))
   end)
 end)
-
 describe('basic mLabel', function()
   it('should not return anything for non labels', function()
     neq('mLabel', helpers.get_first_item(epnf.parsestring(m, [[
@@ -24,7 +22,6 @@ describe('basic mLabel', function()
 ]]))
     )
   end)
-
   it('should return the name of the label', function()
     local parsed = epnf.parsestring(m, [[
 MyLabel(arg1,arg2) n hello
@@ -39,7 +36,6 @@ MyLabel(arg1,arg2) n hello
     eq(labelName.pos.start, 1)
     eq(labelName.pos.finish, 7)
   end)
-
   it('should return the name of the label even with comments', function()
     local parsed = epnf.parsestring(m, [[
 ; We've got a comment here
@@ -61,7 +57,6 @@ MyLabel(arg1,arg2) n hello
     eq(comment.id, "mComment")
     eq(comment.value, "; We've got a comment here")
   end)
-
   it('should return the name of the label even with a single argument', function()
     local parsed = epnf.parsestring(m, [[
 MyLabel(arg1) ;
@@ -71,7 +66,6 @@ MyLabel(arg1) ;
     neq(label, nil)
     eq(label.id, "mLabel")
   end)
-
   it('should allow quitting with numbers', function()
     local parsed = epnf.parsestring(m, [[
 MyLabel() ;
@@ -80,8 +74,15 @@ MyLabel() ;
 ]])
     neq(nil, parsed)
     neq(nil, helpers.get_item(parsed, 'id', 'mQuitCommand'))
-    print()
-    print(require('mparse.util').to_string(parsed))
-    print()
+  end)
+  it('should accept "%" as a variable', function()
+    local parsed = epnf.parsestring(m, [[
+MyTestLabel() ;
+  s %=$$time()
+  q 1
+]])
+    neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mSetCommand'))
+    eq('%', helpers.get_item(parsed, 'id', 'mVariable').value)
   end)
 end)

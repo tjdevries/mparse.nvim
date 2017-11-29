@@ -1,7 +1,3 @@
--- TODO:
---   - Incremental parsing
---   - More highlighting items (perhaps automated)
---   - Better highlighting colors
 local highlighter = require('mparse.highlighter')
 local incremental = require('mparse.incremental')
 

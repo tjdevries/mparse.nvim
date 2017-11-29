@@ -13,5 +13,6 @@ function! mparse#mappings#insert_enter() abort
   endi
 
   " Send the global mapping of <CR> in insert mode
-  return std#mapping#execute_global('i', '<CR>')
+  " echo char2nr(std#mapping#execute_global('i', "\<CR>"))
+  return std#mapping#execute_global('i', "<CR>")
 endfunction

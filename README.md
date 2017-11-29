@@ -24,10 +24,15 @@ call plug#end()
 
 ### TODO:
 
-- Allow searching of values within different syntax items
-  - Search for the word "med" only inside of comments
 - Allow additional parsing rules
-  - For example, parsing headers
+  - [ ] For example, parsing headers
+  - [ ] Add metadata information about when to highlight and when not to highlight
+- "Real-time" highlight
+  - [ ] Rate limited
+  - [ ] Separate server from this project
+- Better highlighting objects
+- Allow searching of values within different syntax items
+  - [ ] Search for the word "med" only inside of comments
 
 ## Thanks
 

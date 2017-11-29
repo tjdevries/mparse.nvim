@@ -3,7 +3,6 @@
 --  Indirection, @, @...@
 --
 -- Programming-wise:
---  Use lpeg whenever available, otherwise lulpeg.
 
 -- Imports {{{
 local token = require('mparse.token')
@@ -11,6 +10,12 @@ local patterns = require('mparse.patterns')
 
 local V = patterns.V
 
+-- }}}
+-- Option Definitions {{{
+local parser_options = {
+  parameters_enabled = false,
+  strict_compiler_directives = true
+}
 -- }}}
 -- Standard definitions {{{
 local single_space = patterns.literal(' ')
@@ -42,7 +47,10 @@ local elseCommand = patterns.command_helper("else")
 local xecuteCommand = patterns.command_helper("xecute")
 local forCommand = patterns.command_helper("for")
 local newCommand = patterns.command_helper("new")
-local writeCommand = patterns.command_helper("write")
+local writeCommand = patterns.branch(
+  patterns.command_helper("write")
+  , patterns.literal('zw')
+)
 local setCommand = patterns.command_helper("set")
 
 local normalCommands = patterns.capture(
@@ -128,13 +136,17 @@ local anyOperator = patterns.branch(
 )
 -- }}}
 -- Name Identifiers {{{
-local namedIdentifiers = patterns.concat(
-  -- Can optionally start with as '%'
-  patterns.one_or_no(patterns.literal('%')),
-  -- Must start with a letter
-  letter,
-  -- Afterwards it can be letters or numbers
-  patterns.any_amount(alphanum)
+local namedIdentifiers = patterns.branch(
+  patterns.concat(
+    -- Can optionally start with as '%'
+    patterns.one_or_no(patterns.literal('%')),
+    -- Must start with a letter
+    letter,
+    -- Afterwards it can be letters or numbers
+    patterns.any_amount(alphanum)
+  ),
+  -- Or just a '%' all by itself
+  patterns.literal('%')
 )
 
 -- Variables can't have "(" at the end of their name
@@ -217,6 +229,15 @@ local start_of_line = patterns.concat(
 )
 
 local captured_single_space = patterns.capture(single_space)
+-- }}}
+-- {{{ Compiler Directives
+-- List of known compiler directives
+local verified_compiler_directives = {
+  localInline = true,
+  endLocalInline = true,
+  testTag = true,
+  strip = true,
+}
 -- }}}
 -- luacheck: no unused args
 local m_grammar = token.define(function(_ENV)
@@ -306,7 +327,17 @@ local m_grammar = token.define(function(_ENV)
   mCompilerDirective = patterns.capture(
     patterns.concat(
       patterns.literal('#')
-      , patterns.any_amount(letter)
+      , patterns.function_capture(patterns.any_amount(letter), function(string, index, left, right)
+        if not parser_options.strict_compiler_directives then
+          return true
+        end
+
+        if verified_compiler_directives[left] then
+          return true
+        end
+
+        return false
+      end)
       , patterns.literal('#')
     )
   )
@@ -687,15 +718,29 @@ local m_grammar = token.define(function(_ENV)
     return false
   end)
 
+  mIndirectionOperator = patterns.capture(patterns.literal('@'))
   mVariableNonArray = patterns.capture(variableIdentifiers)
   mVariableArray = patterns.capture(
     patterns.concat(
       patterns.branch(
+        -- HANDLE: @<expression>@(...)
         patterns.concat(
-          patterns.literal('@'),
-          V("mValidExpression"),
-          patterns.literal('@')
+          V("mIndirectionOperator"),
+          -- TODO: Somehow get more inclusive options here
+          patterns.subset_expression(
+            patterns.branch(
+              V("mString")
+              , V("mVariableNonArray")
+              , V("mFunctionCall")
+            )
+            , patterns.branch(
+              V("mOperator")
+              , V("mLogicalOperators")
+            )
+          ),
+          V("mIndirectionOperator")
         ),
+        -- HANDLE: <variableName>(...)
         namedIdentifiers
       ),
       left_parenth,
@@ -711,12 +756,12 @@ local m_grammar = token.define(function(_ENV)
   mVariableIndirect = patterns.concat(
     patterns.capture(
       patterns.concat(
-        patterns.literal('@'),
+        V("mIndirectionOperator"),
         patterns.optional_surrounding_parenths(V("mValidExpression"))
       )
     ),
     -- Should not end with an '@'. That's an array indirection
-    patterns.neg_look_ahead(patterns.literal('@')),
+    patterns.neg_look_ahead(V("mIndirectionOperator")),
     patterns.look_ahead(
       patterns.branch(
         V("mCommandSeparator"),
@@ -768,8 +813,6 @@ local m_grammar = token.define(function(_ENV)
 end)
 
 return { -- {{{
-  m_grammar=m_grammar,
-
-  -- If parameter finding enabled
-  parameters_enabled=false,
+  m_grammar = m_grammar,
+  options = parser_options,
 } -- }}}

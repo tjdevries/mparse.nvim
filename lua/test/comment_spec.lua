@@ -63,22 +63,31 @@ myLabel() ; comment
 
   it('should handle compiler directives', function()
     local parsed = epnf.parsestring(m, [[
-;#compDir# hello
+;#testTag# hello
 ]])
     neq(nil, parsed)
     neq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
-    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#compDir#')
-    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';#compDir# hello')
+    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#testTag#')
+    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';#testTag# hello')
   end)
 
   it('should handle compiler directives with two ;', function()
     local parsed = epnf.parsestring(m, [[
-;;#compDir# hello
+;;#testTag# hello
 ]])
     neq(nil, parsed)
     neq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
-    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#compDir#')
-    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#compDir# hello')
+    eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#testTag#')
+    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#testTag# hello')
+  end)
+
+  it('should not return a compiler directive for non-valid compiler directives', function()
+    local parsed = epnf.parsestring(m, [[
+;;#notAValidDirective# hello
+]])
+    neq(nil, parsed)
+    eq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
+    eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#notAValidDirective# hello')
   end)
 
   it('should not find compiler directives further in the line', function()
