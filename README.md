@@ -33,6 +33,9 @@ call plug#end()
 - Better highlighting objects
 - Allow searching of values within different syntax items
   - [ ] Search for the word "med" only inside of comments
+- Flattening of the AST
+  - I don't need to have some of the intermediate steps kept in the AST.
+  - Might be able to lose them by modifying `token.lua`
 
 ## Thanks
 

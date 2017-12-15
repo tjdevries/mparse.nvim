@@ -41,6 +41,9 @@ let s:comment_match = '^\s\+;'
 let s:routine_header = '^\s\+;\*\*\*\*\*\*\*'
 let s:compiler_directive_match = '^\s\+;\%[;]#'
 
+let s:header_start = '^\s\+;>>>>>'
+let s:header_end = '^\s\+;<<<<<'
+
 function! s:get_scope(lines) abort " {{{
   for line in a:lines
     let scope = matchlist(line, 'SCOPE:\s*\(\w*\)')[1]
@@ -94,30 +97,35 @@ function! MFoldText(...) abort " {{{
 
   let text = '____/ '
 
-  " TODO: Cache some of the values that we get here so that we only look them
-  " up once a minute or something like that.
-  " As well as maybe some function to clear the caches and try again :)
-  let name = s:get_name(fold_lines)
-  if name != ''
-    let text .= '[' . name . '] '
+  if match(fold_lines[0], s:header_start) != -1
+    let text .= join(fold_lines[1:-2])
+  else
+    " TODO: Cache some of the values that we get here so that we only look them
+    " up once a minute or something like that.
+    " As well as maybe some function to clear the caches and try again :)
+    let name = s:get_name(fold_lines)
+    if name != ''
+      let text .= '[' . name . '] '
+    endif
+
+    let scope = s:get_scope(fold_lines)
+    if scope != ''
+      let padding = 40 - len(text)
+      let text .= repeat(' ', padding) . 'S: ' . scope
+    endif
+
+    let desc = s:get_desc(fold_lines)
+    if desc != ''
+      let padding = 55 - len(text)
+      let text .= repeat(' ', padding) . 'DESC: ' . desc
+    endif
+
+    let purpose = s:get_purpose(fold_lines)
+    if purpose != ''
+      let text .= '==> Purpose: ' . purpose
+    endif
   endif
 
-  let scope = s:get_scope(fold_lines)
-  if scope != ''
-    let padding = 40 - len(text)
-    let text .= repeat(' ', padding) . 'S: ' . scope
-  endif
-
-  let desc = s:get_desc(fold_lines)
-  if desc != ''
-    let padding = 55 - len(text)
-    let text .= repeat(' ', padding) . 'DESC: ' . desc
-  endif
-
-  let purpose = s:get_purpose(fold_lines)
-  if purpose != ''
-    let text .= '==> Purpose: ' . purpose
-  endif
 
   let padding = 120 - len(text)
   let text .= repeat(' ', padding) . ' \' . repeat('_', 200)
@@ -141,6 +149,14 @@ function! MFoldExpr(line_number) abort " {{{
   endif
 
   if lnum == line('$')
+    return '<1'
+  endif
+
+  if match(line, s:header_start) != -1
+    return '>1'
+  endif
+
+  if match(line, s:header_end) != -1
     return '<1'
   endif
 
