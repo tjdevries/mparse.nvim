@@ -14,7 +14,8 @@ local V = patterns.V
 -- Option Definitions {{{
 local parser_options = {
   parameters_enabled = false,
-  strict_compiler_directives = true
+  strict_compiler_directives = true,
+  strict_tag_headers = true,
 }
 -- }}}
 -- Standard definitions {{{
@@ -37,7 +38,11 @@ local letter = patterns.branch(
 local alphanum = patterns.branch(letter, digit)
 -- }}}
 -- standard commands {{{
-local commandOperator = patterns.literal('!')
+local commandOperator = patterns.branch(
+  patterns.literal('!'),
+  patterns.literal('?'),
+  patterns.literal('#')
+)
 
 local doCommand = patterns.command_helper("do")
 local quitCommand = patterns.command_helper("quit")
@@ -58,7 +63,6 @@ local normalCommands = patterns.capture(
     mergeCommand,
     elseCommand,
     xecuteCommand,
-    forCommand,
     patterns.literal("g"),
     patterns.literal("goto"),
     patterns.literal("c"),
@@ -228,15 +232,24 @@ local start_of_line = patterns.concat(
   )
 )
 
-local captured_single_space = patterns.capture(single_space)
 -- }}}
--- {{{ Compiler Directives
+-- {{{ Comment Niceties
 -- List of known compiler directives
 local verified_compiler_directives = {
   localInline = true,
   endLocalInline = true,
   testTag = true,
   strip = true,
+  eor = true,
+}
+
+local verified_tag_headers = {
+  SCOPE = true,
+  DESCRIPTION = true,
+  PARAMETERS = true,
+  RETURNS = true,
+  ['REVISION HISTORY'] = true,
+  ['SIDE EFFECTS'] = true,
 }
 -- }}}
 -- luacheck: no unused args
@@ -280,7 +293,7 @@ local m_grammar = token.define(function(_ENV)
 
     local post_conditional_pattern = patterns.one_or_no(V("mPostConditional"))
     if not accepts_post_conditional then
-      post_conditional_pattern = patterns.look_ahead(patterns.any_character)
+      post_conditional_pattern = patterns.zero_match
     end
 
     local whitespace_pattern = single_space
@@ -327,12 +340,12 @@ local m_grammar = token.define(function(_ENV)
   mCompilerDirective = patterns.capture(
     patterns.concat(
       patterns.literal('#')
-      , patterns.function_capture(patterns.any_amount(letter), function(string, index, left, right)
+      , patterns.function_capture(patterns.any_amount(letter), function(string, index, match)
         if not parser_options.strict_compiler_directives then
           return true
         end
 
-        if verified_compiler_directives[left] then
+        if verified_compiler_directives[match] then
           return true
         end
 
@@ -342,22 +355,47 @@ local m_grammar = token.define(function(_ENV)
     )
   )
 
+  mTagHeaderDirectives = patterns.capture(
+    patterns.function_capture(
+      patterns.concat(
+        patterns.any_amount(letter),
+        patterns.literal(':')
+      ), function(string, index, match)
+        if not parser_options.strict_tag_headers then
+          return true
+        end
+
+        if verified_tag_headers[match:sub(1, -2)] then
+          return true
+        end
+
+        return false
+    end)
+  )
+
+  mCommentSemiColon = patterns.capture(patterns.literal(';'))
+  mCommentText = patterns.capture(
+    patterns.one_or_more(anyCharacter - EOL)
+  )
+
   mComment = patterns.concat( -- {{{
     patterns.capture(
-      -- TODO: Don't highlight dots like comments
       patterns.concat(
-        patterns.branch(
-          patterns.one_or_no(start_of_line),
-          patterns.any_amount(captured_single_space)
-        ),
-        patterns.literal(';'),
-        patterns.one_or_no(patterns.literal(';')),
+        patterns.one_or_no(start_of_line),
+        patterns.any_amount(single_space),
+        V("mCommentSemiColon"),
+        patterns.one_or_no(V("mCommentSemiColon")),
         patterns.one_or_no(V("mCompilerDirective")),
-        -- Anything up to end of line
-        patterns.any_amount(anyCharacter - EOL)
+        patterns.one_or_no(
+          patterns.concat(
+            patterns.any_amount(single_space),
+            V("mTagHeaderDirectives")
+          )
+        ),
+        patterns.one_or_no(V("mCommentText"))
       )
     ),
-    EOL
+    patterns.capture(EOL)
   ) -- }}}
   mString = patterns.capture(patterns.concat( -- {{{
     patterns.literal('"'),
@@ -441,7 +479,9 @@ local m_grammar = token.define(function(_ENV)
     patterns.one_or_more(V("mCommand")),
     patterns.branch(
       V("mComment"),
-      EOL
+      -- TODO: Maybe have a smarter way to check end of line,
+      -- since we sometimes consume it in other places
+      patterns.one_or_no(EOL)
     )
   )
   -- }}}
@@ -484,6 +524,37 @@ local m_grammar = token.define(function(_ENV)
     V("mArithmeticExpression")
   )
 
+  mIfOperators = patterns.branch(
+    logicalOperators,
+    relationalOperators
+  )
+
+  mIfInnerExpression = patterns.concat(
+    patterns.optional_surrounding_parenths(V("mArithmeticTokens")),
+    patterns.any_amount(
+      patterns.concat(
+        V("mIfOperators"),
+        patterns.optional_surrounding_parenths(V("mArithmeticTokens"))
+      )
+    )
+  )
+
+  -- TODO: The parenths are still unexpected here
+  -- Need to balance them somehow
+  -- mIfExpression = patterns.branch(
+  --   patterns.concat(
+  --     patterns.literal('('),
+  --     V("mIfInnerExpression"),
+  --     patterns.literal(')')
+  --   ),
+  --   V("mIfInnerExpression")
+  -- )
+  mIfExpression = patterns.concat(
+    patterns.one_or_no(patterns.literal('(')),
+    V("mIfInnerExpression"),
+    patterns.one_or_no(patterns.literal(')'))
+  )
+
   mValidExpression = patterns.branch(
     V("mConditionalExpression"),
     V("mArithmeticExpression")
@@ -491,6 +562,7 @@ local m_grammar = token.define(function(_ENV)
   -- }}}
   mCommand = patterns.concat( -- {{{
     patterns.branch(
+      V("mForCommand"),
       V("mDoCommand"),
       V("mWriteCommand"),
       V("mNewCommand"),
@@ -501,16 +573,84 @@ local m_grammar = token.define(function(_ENV)
     ),
     V("mCommandFinish")
   ) -- }}}
+  -- For Commands {{{
+  mForCommand = command_generator({
+    name = 'ForCommand',
+    starting_pattern = forCommand,
+    argument_pattern = patterns.branch(
+      patterns.concat(
+        single_space,
+        V("mSetCommand"),
+        single_space,
+        patterns.branch(
+          patterns.any_amount(
+            V("mQuitCommand")
+          ),
+          V("mDoCommand")
+        )
+      ),
+      -- f idx=<expr>:<expr>:<expr> <command>
+      patterns.concat(
+        V("mVariable"),
+        patterns.literal('='),
+        V("mArithmeticTokens"),
+        patterns.literal(':'),
+        V("mArithmeticTokens"),
+        patterns.literal(':'),
+        V("mArithmeticTokens"),
+        single_space,
+        V("mCommand")
+      )
+    ),
+
+    disable_optional_argument_parenths = true,
+
+    -- TODO: I suppose it's possible, but I've never seen it.
+    accepts_post_conditional = false,
+  })
+  -- }}}
   -- Do Commands {{{
   mDoCommand = command_generator({
     name = 'DoCommand',
     starting_pattern = doCommand,
     argument_pattern = V("mDoCommandArgs"),
+    whitespace_pattern = patterns.zero_match,
 
     disable_optional_argument_parenths = true,
   })
 
-  mDoCommandArgs = V("mDoFunctionCall")
+  mDoCommandArgs = patterns.branch(
+    patterns.concat(
+      single_space,
+      V("mDoFunctionCall")
+    ),
+    patterns.concat(
+      patterns.branch(
+        -- d
+        -- . <commands>
+        EOL,
+        -- d  w "something"
+        -- . w "first"
+        patterns.concat(
+          single_space,
+          single_space,
+          V("mCommand"),
+          EOL
+        )
+      )
+      , patterns.one_or_more(
+          patterns.concat(
+            -- TODO: Control dot levels here
+            patterns.any_amount(whitespace)
+            , #patterns.literal('.')
+            , #patterns.any_amount(patterns.literal(' .'))
+            , V("mBodyLine")
+          )
+        )
+      -- , V("mBodyLine")
+    )
+  )
+
   -- }}}
   -- If Commands {{{
   -- TODO: Else, else if
@@ -519,9 +659,7 @@ local m_grammar = token.define(function(_ENV)
     starting_pattern = ifCommand,
 
     argument_pattern = patterns.concat(
-      patterns.optional_surrounding(
-        left_parenth,
-        right_parenth,
+      patterns.optional_surrounding_parenths(
         V("mIfCommandArgs")
       ),
       single_space,
@@ -533,7 +671,7 @@ local m_grammar = token.define(function(_ENV)
   })
 
   _mIfCommandSection = patterns.branch(
-    V("mConditionalExpression"),
+    V("mIfExpression"),
     V("mValidExpression")
   )
 
@@ -578,14 +716,11 @@ local m_grammar = token.define(function(_ENV)
   })
 
   -- TODO: Make sure to make the order of these correct and that they are as independent as possible
-  mWriteCommandArgs = patterns.concat(
-    V("mValidExpression"),
-    patterns.any_amount(
-      patterns.branch(
-        V("mCommandOperator"),
-        V("mCommandSeparator"),
-        V("mValidExpression")
-      )
+  mWriteCommandArgs = patterns.one_or_more(
+    patterns.branch(
+      V("mCommandOperator"),
+      V("mCommandSeparator"),
+      V("mValidExpression")
     )
   )
   -- }}}
@@ -617,18 +752,23 @@ local m_grammar = token.define(function(_ENV)
     name = 'QuitCommand',
     starting_pattern = quitCommand,
     argument_pattern = V("mQuitCommandArgs"),
-    whitespace_pattern = patterns.one_or_no(single_space),
+    whitespace_pattern = patterns.zero_match or 1,
+
+    accepts_post_conditional = true,
   })
 
   -- Any arithmetic expression should work I think
   -- TODO: Might want to have a better name for this, like string concatenation, etc.
-  mQuitCommandArgs = patterns.concat(
-    patterns.branch(
-      patterns.end_of_line,
-      patterns.concat(
-        patterns.look_behind(single_space),
-        V("mValidExpression")
-      )
+  mQuitCommandArgs = patterns.branch(
+    #EOL,
+    patterns.concat(
+      single_space,
+      single_space,
+      V("mDoCommand")
+    ),
+    patterns.concat(
+      single_space,
+      V("mValidExpression")
     )
   )
   -- }}}
@@ -653,8 +793,7 @@ local m_grammar = token.define(function(_ENV)
           patterns.branch(logicalOperators, comma),
           V("mPostConditionalExpression")
         )
-      ),
-      #whitespace
+      )
     )
   )
   -- }}}
@@ -662,8 +801,8 @@ local m_grammar = token.define(function(_ENV)
   mCommandSeparator = patterns.capture(comma)
   mCommandOperator = patterns.capture(
     patterns.concat(
-      patterns.one_or_no(V("mDigit")),
-      commandOperator
+      commandOperator,
+      patterns.one_or_no(V("mDigit"))
     )
   )
   mCommandArgs = patterns.branch(
@@ -689,7 +828,7 @@ local m_grammar = token.define(function(_ENV)
     -- Still not sure if this captures all the items I'm looking for
     patterns.one_or_no(
       patterns.concat(
-        patterns.look_ahead(patterns.end_of_line),
+        patterns.look_ahead(EOL),
         E('Unexpected Arguments to command. No previous handling')
       )
     )
@@ -719,6 +858,31 @@ local m_grammar = token.define(function(_ENV)
   end)
 
   mIndirectionOperator = patterns.capture(patterns.literal('@'))
+  mVariableIntrinsic = patterns.capture(
+    patterns.concat(
+      patterns.literal('$'),
+      variableIdentifiers
+    )
+  )
+  mVariableGlobal = patterns.capture(
+    patterns.concat(
+      patterns.literal('^'),
+      namedIdentifiers,
+      patterns.one_or_no(
+        patterns.concat(
+          left_parenth,
+          V("mValidExpression"),
+          patterns.any_amount(
+            patterns.concat(
+              comma,
+              V("mValidExpression")
+            )
+          ),
+          right_parenth
+        )
+      )
+    )
+  )
   mVariableNonArray = patterns.capture(variableIdentifiers)
   mVariableArray = patterns.capture(
     patterns.concat(
@@ -765,7 +929,7 @@ local m_grammar = token.define(function(_ENV)
     patterns.look_ahead(
       patterns.branch(
         V("mCommandSeparator"),
-        patterns.end_of_line,
+        EOL,
         patterns.end_of_file
       )
     )
@@ -773,7 +937,9 @@ local m_grammar = token.define(function(_ENV)
   mVariable = patterns.capture(
     patterns.branch(
       -- V("mParameter") ,
-      V("mVariableArray")
+      V("mVariableIntrinsic")
+      , V("mVariableGlobal")
+      , V("mVariableArray")
       , V("mVariableNonArray")
       , V("mVariableIndirect")
     )
@@ -794,21 +960,24 @@ local m_grammar = token.define(function(_ENV)
       V("mDoFunctionCall")
     )
   )
+  mFunctionLeftParenth = patterns.capture(left_parenth)
+  mFunctionRightParenth = patterns.capture(right_parenth)
+
   mDoFunctionCall = patterns.concat(
     patterns.capture(calledFunctionIdentifiers),
-    left_parenth,
+    V("mFunctionLeftParenth"),
     patterns.any_amount(
       patterns.branch(
         V("mValidExpression"),
         comma
       )
     ),
-    right_parenth
+    V("mFunctionRightParenth")
   )
   -- }}}
   -- Errors {{{
   mError = (1 - EOL) ^ 1
-  mCapturedError = patterns.capture(patterns.one_or_no(V("mError")))
+  mCapturedError = patterns.capture(V("mError"))
   -- }}}
 end)
 

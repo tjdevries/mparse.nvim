@@ -85,4 +85,16 @@ MyTestLabel() ;
     neq(nil, helpers.get_item(parsed, 'id', 'mSetCommand'))
     eq('%', helpers.get_item(parsed, 'id', 'mVariable').value)
   end)
+  it('should not be worried about empty comments', function()
+    local parsed = epnf.parsestring(m, [[
+  ;
+myLabel() ;
+  w "WOW!"
+  q 1
+]])
+    neq(nil, parsed)
+    eq(nil, helpers.get_item(parsed, 'id', 'mError'))
+    eq('q', helpers.get_item(parsed, 'id', 'mQuitCommand').value)
+    eq('1', helpers.get_item(parsed, 'id', 'mDigit').value)
+  end)
 end)

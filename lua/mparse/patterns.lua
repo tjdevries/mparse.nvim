@@ -105,11 +105,17 @@ patterns.command_helper = function(s)
   )
 end
 
+patterns.zero_match = lpeg.P(0)
 patterns.any_character = lpeg.P(1)
 patterns.end_of_file = -lpeg.P(1)
-patterns.end_of_line = lpeg.P"\r"^-1 * lpeg.P"\n"
+patterns.end_of_line = patterns.branch(
+  patterns.literal("\r\n"),
+  patterns.literal("\r"),
+  patterns.literal("\n")
+)
 patterns.start_of_line = patterns.branch(
-  patterns.look_behind(patterns.literal('\n')),
+  patterns.look_behind(patterns.literal("\n")),
+  -- patterns.look_behind(patterns.literal("\r")),
   patterns.look_behind(patterns.literal(''))
 )
 

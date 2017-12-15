@@ -9,22 +9,29 @@ local neq = helpers.neq
 
 -- TODO: Shift to m.mComment to parse these
 describe('comment', function()
+  it('should accept empy lines', function()
+    local parsed = epnf.parsestring(m, [[
+;
+; hello
+;
+]])
+    neq(nil, parsed)
+  end)
   it('should accept easy strings', function()
     local parsed = helpers.get_item(epnf.parsestring(m, [[; this is a comment]]), 'id', 'mComment')
     neq(nil, parsed)
     eq('mComment', parsed.id)
     eq('; this is a comment', parsed.value)
   end)
-
   it('should be fine with special characters', function()
     local parsed = helpers.get_item(epnf.parsestring(m, [[; "this" ! is all comment __]]), 'id', 'mComment')
     neq(nil, parsed)
     eq('mComment', parsed.id)
     eq('; "this" ! is all comment __', parsed.value)
   end)
-
   it('should not include the extra items', function()
-    local parsed = helpers.get_item(epnf.parsestring(m, [[; this is a comment
+    local parsed = helpers.get_item(epnf.parsestring(m, [[
+; this is a comment
 myNotComment() q
 ]]), 'id', 'mComment')
 
@@ -32,7 +39,6 @@ myNotComment() q
     eq('mComment', parsed.id)
     eq('; this is a comment', parsed.value)
   end)
-
   it('should handle all sorts of stuff', function()
     local parsed = epnf.parsestring(m, [[
  ; s threshold=$$GetEncDupThreshold^LDEDUPENC(0)
@@ -51,16 +57,14 @@ myNotComment() q
     neq(nil, parsed)
     neq(nil, helpers.get_item(parsed, 'id', 'mComment'))
   end)
-
   it('should handle comments at the end of the line and the next line', function()
     local parsed = epnf.parsestring(m, [[
 myLabel() ; comment
   w !,"hello"  ; comment
-  ; another comment
+  q
 ]])
     neq(nil, parsed)
   end)
-
   it('should handle compiler directives', function()
     local parsed = epnf.parsestring(m, [[
 ;#testTag# hello
@@ -70,7 +74,6 @@ myLabel() ; comment
     eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#testTag#')
     eq(helpers.get_item(parsed, 'id', 'mComment').value, ';#testTag# hello')
   end)
-
   it('should handle compiler directives with two ;', function()
     local parsed = epnf.parsestring(m, [[
 ;;#testTag# hello
@@ -80,7 +83,6 @@ myLabel() ; comment
     eq(helpers.get_item(parsed, 'id', 'mCompilerDirective').value, '#testTag#')
     eq(helpers.get_item(parsed, 'id', 'mComment').value, ';;#testTag# hello')
   end)
-
   it('should not return a compiler directive for non-valid compiler directives', function()
     local parsed = epnf.parsestring(m, [[
 ;;#notAValidDirective# hello
@@ -96,5 +98,12 @@ myLabel() ; comment
 ]])
     neq(nil, parsed)
     eq(nil, helpers.get_item(parsed, 'id', 'mCompilerDirective'))
+  end)
+  it('should find tag header directives', function()
+    local parsed = epnf.parsestring(m, [[
+; SCOPE: PRIVATE
+]])
+    neq(nil, parsed)
+    eq('SCOPE:', helpers.get_item(parsed, 'id', 'mTagHeaderDirectives').value)
   end)
 end)

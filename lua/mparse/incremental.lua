@@ -57,9 +57,9 @@ end
 -- TODO: Function to change the positions in an AST.
 -- @param ast: Parsed subsection of results
 -- @param position_transform (position structure): A table that contains the number to shift positions by
-inc.transform_pos = function(ast, position_transform)
-  print(require('mparse.util').to_string(ast))
-  print(position_transform)
+inc.transform_pos = function(ast, _)
+  -- print(require('mparse.util').to_string(ast))
+  -- print(position_transform)
 
   -- luacheck: globals table.deepcopy
   require('mparse.deepcopy')

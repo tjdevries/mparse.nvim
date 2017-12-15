@@ -11,5 +11,5 @@ endif
 
 " TODO: Check if we have colorbuddy.vim
 if v:true
-    call execute('luafile ' . expand('<sfile>:h') . '/mparse_colors.lua')
+    call execute('luafile ' . expand('<sfile>:h:h') . '/colors/mparse_buddy.lua')
 endif

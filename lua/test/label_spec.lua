@@ -99,6 +99,34 @@ testLabel ; comment
     neq(nil, label)
     -- eq(label.value, 'testLabel')
   end)
+  it('should detect ^ as globals', function()
+    local parsed = epnf.parsestring(m, [[
+labl() ;
+  s ^XEXAMPLE=10
+  q 1
+]])
+    neq(nil, parsed)
+    eq('^XEXAMPLE', helpers.get_item(parsed, 'id', 'mVariable').value)
+  end)
+  it('should detect ^...() as globals', function()
+    local parsed = epnf.parsestring(m, [[
+labl() ;
+  s ^XEXAMPLE("abc")=10
+  q 1
+]])
+    neq(nil, parsed)
+    eq('^XEXAMPLE("abc")', helpers.get_item(parsed, 'id', 'mVariable').value)
+  end)
+  it('should detect $J as variables (intrinsics)', function()
+    local parsed = epnf.parsestring(m, [[
+labl() ;
+  s job=$J
+  q 1
+]])
+    neq(nil, parsed)
+    eq('job', helpers.get_item(parsed, 'id', 'mVariable').value)
+    eq('$J', helpers.get_item(parsed, 'id', 'mVariableIntrinsic').value)
+  end)
   describe('[Command Detection]', function()
     describe('Do command ==>', function()
       it('should notice function calls for do functions without $$', function()
@@ -170,6 +198,46 @@ doLabel() ;
   q
 ]])
         neq(nil, parsed)
+      end)
+      it('should allow secondary commands', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d  w "this thing"
+  . w !,"HELLO WORLD"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('should allow secondary quit commands', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d  q:(1=1) 1
+  . w !,"HELLO WORLD"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('should allow secondary quit commands with no args', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d  q
+  . w !,"HELLO WORLD"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('should allow secondary quit commands with a conditional', function()
+        local parsed = epnf.parsestring(m, [[
+doLabel() ;
+  d  q:(1=1)
+  . w !,"HELLO WORLD"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
       end)
     end)
     describe('New command ==>', function()
@@ -349,6 +417,15 @@ myLabel() ; comment
         neq(nil, parsed)
         eq('zw', helpers.get_item(parsed, 'id', 'mWriteCommand').value)
       end)
+      it('should handle using operators and numbers', function()
+        local parsed = epnf.parsestring(m, [[
+writeDictionaryItem(itemID,itemValue) ;
+ w !,itemID,?10,": ",$p(itemValue,"^",1,1),?60,$p(itemValue,"^",2,2)
+ q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
     end)
     describe('If Command ==>', function()
       it('should handle numbers', function()
@@ -389,6 +466,73 @@ QuitLabel() q $$func1()+$$func2()
 ]])
         neq(nil, parsed)
       end)
+    end)
+    describe('For Command ==>', function()
+      it('Should handle one line for functions', function()
+        local parsed = epnf.parsestring(m, [[
+TestLabel() f idx=1:1:100 w !,idx
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('Should handle multi-line do functions', function()
+        local parsed = epnf.parsestring(m, [[
+TestLabel() f idx=1:1:100 d
+  . w !,"hello"
+  . w !,"yup"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('Should handle set stuff and then do functions', function()
+        local parsed = epnf.parsestring(m, [[
+TestLabel() ;
+  f  s idx=$$nextID(idx) d
+  . w !,"hello"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('Should handle set, quit and then do functions', function()
+        local parsed = epnf.parsestring(m, [[
+TestLabel() ;
+  f  s idx=$$nextID(idx) q:idx=""  d
+  . w !,"hello"
+  q 1
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+      it('Should handle set, quit and then do functions', function()
+        local parsed = epnf.parsestring(m, [[
+TestLabel() ;
+  f  s idx=$$nextID(idx) q:(idx="")  d
+  . w !,"This is a for loop"
+  n myVar
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      end)
+    end)
+  end)
+  describe('[Realistic Examples]', function()
+    it('should work 1', function()
+      local parsed = epnf.parsestring(m, [[
+Example(var) ;;#testTag# It can handle compiler directives
+  n factor,idx
+  ; It knows about intrinsics!
+  s factor($J)=$$setDefault(0,factor("NOT A THING"),"default")
+  ;]] .. "\r\n" .. [[; Handles intrinsic functions and user functions
+  d thisFunction()
+  q
+]])
+      neq(nil, parsed)
+      eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+      eq('thisFunction', helpers.get_item(helpers.get_item(parsed, 'id', 'mDoCommand'), 'id', 'mDoFunctionCall').value)
     end)
   end)
 end)

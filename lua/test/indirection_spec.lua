@@ -21,9 +21,9 @@ mySetter() ;
     local parsed = epnf.parsestring(m, [[
 mySetter() s myVar=@"MYGLOBAL"@("sub")
 ]])
-    print()
-    print(require('mparse.util').to_string(parsed))
-    print()
+    -- print()
+    -- print(require('mparse.util').to_string(parsed))
+    -- print()
     neq(nil, parsed)
     eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
     eq(nil, helpers.get_item(parsed, 'id', 'mVariableIndirect'))

@@ -7,5 +7,6 @@ ignore = {
 globals = {
     "describe",
     "it",
+    "pending",
     "E"
 }
