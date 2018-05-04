@@ -13,9 +13,8 @@ describe('mLabel:', function()
 testLabel(arg1,arg2) q arg1
 ]])
       local label = helpers.get_item(parsed, 'id', 'mLabel')
-      print()
-      -- print(require('mparse.util').to_string(label))
-      print()
+
+      -- eq({}, label)
     end)
   end)
 end)

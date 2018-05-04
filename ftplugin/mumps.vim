@@ -15,10 +15,16 @@ setlocal commentstring=;%s
 setlocal nocursorline
 setlocal nonumber
 setlocal norelativenumber
+
+setlocal nowrap
 " }}}
 " Autocomds: {{{
 augroup mparse/highlight
   autocmd!
+
+  " Change all the tabs we get from epic studio to spaces,
+  " since we'll be pasting back into epic studio anyways.
+  autocmd BufWritePre <buffer> silent! %s/\t/  /g
 
   " TODO: Allow the user to configure how often they want highlighting to run
   autocmd BufEnter,BufReadPost,BufWritePost <buffer> silent! call MHighlight()
@@ -27,6 +33,7 @@ augroup mparse/highlight
   " Don't highlight anything before this line.
   " Try not to highlight anything AFTER this label as well
   autocmd TextChanged,InsertLeave <buffer> silent! call MHighlight()
+
 augroup END " }}}
 " Mappings: {{{
 inoremap <buffer><expr> <CR> mparse#mappings#insert_enter()
@@ -35,6 +42,12 @@ inoremap <buffer><expr> <CR> mparse#mappings#insert_enter()
 setlocal foldmethod=expr
 setlocal foldexpr=MFoldExpr(v:lnum)
 setlocal foldtext=MFoldText()
+
+if nvim_buf_line_count(0) < 50
+  setlocal foldlevel=3
+else
+  setlocal foldlevel=0
+endif
 
 let s:label_match = '^\%[%]\w\+'
 let s:comment_match = '^\s\+;'

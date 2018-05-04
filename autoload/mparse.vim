@@ -20,6 +20,12 @@ function! mparse#find_labels() abort
   return label_lines
 endfunction
 
+""
+" 
+function! mparse#highlight_labels() abort
+  call luaeval("require('mparse.init').piecewise_highlight()")
+endfunction
+
 let s:source_file = expand('<sfile>')
 
 ""

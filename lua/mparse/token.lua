@@ -48,22 +48,25 @@ end
 --
 -- get the line which p points into, the line number and the position
 -- of the beginning of the line
+local __lines = {}
 local function getline( s, p )
-  local lno, sol = 1, 1
-  for i = 1, p do
-    if string.sub( s, i, i ) == "\n" then
-      lno = lno + 1
-      sol = i + 1
+  -- if __lines == {} then
+    local lno, sol = 1, 1
+    for i = 1, p do
+      if string.sub( s, i, i ) == "\n" then
+        lno = lno + 1
+        sol = i + 1
+      end
     end
-  end
-  local eol = #s
-  for i = sol, #s do
-    if string.sub( s, i, i ) == "\n" then
-      eol = i - 1
-      break
+    local eol = #s
+    for i = sol, #s do
+      if string.sub( s, i, i ) == "\n" then
+        eol = i - 1
+        break
+      end
     end
-  end
-  return string.sub( s, sol, eol ), lno, sol
+    return string.sub( s, sol, eol ), lno, sol
+  -- end
 end
 
 -- Error reporting {{{
@@ -127,7 +130,7 @@ local function make_ast_node( id, pos, t )
   t.pos = {
     start = pos,
     finish = finish,
-    start_of_line = sol,
+    -- start_of_line = sol,
     line_number = lno,
     column_start = pos - sol,
     column_finish = finish - sol,
@@ -161,6 +164,7 @@ function epnf.define( func, g, e )
         suppressed[ select( i, ... ) ] = true
       end
     end,
+
     E = E,
   }
 
@@ -188,6 +192,7 @@ end
 -- apply a given grammar to a string and return the ast. also allows
 -- to set the name of the string for error messages
 function epnf.parse( g, name, input, ... )
+  __lines = {}
   return L.match( L.P( g ), input, 1, name, ... ), name, input
 end
 
@@ -218,7 +223,9 @@ function epnf.parse_incremental(g, str, transform, ...)
   epnf.current_string = str
   if #s < #str then s = s .. "..." end
   local name = "[\"" .. string.gsub( s, "\n", "\\n" ) .. "\"]"
-  return epnf.parse( g, name, str, ... )
+  local parsed = epnf.parse( g, name, str, ... )
+
+  return transform(parsed, ...)
 end
 
 

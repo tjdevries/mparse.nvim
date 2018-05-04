@@ -5,6 +5,7 @@ ignore = {
 }
 
 globals = {
+    "vim",
     "describe",
     "it",
     "pending",

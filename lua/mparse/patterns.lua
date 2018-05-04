@@ -23,6 +23,7 @@ end
 
 local patterns = {}
 
+patterns.match = lpeg.match
 patterns.V = function(item) return lpeg.V(item) end
 patterns.table_capture = function(item) return lpeg.Ct(item) end
 patterns.group_capture = Cg

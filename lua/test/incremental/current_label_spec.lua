@@ -39,5 +39,15 @@ IncLabel() ;
       local transformed = incremental.transform_pos(ast, {})
       eq(ast, transformed)
     end)
+
+    it('should add the line numbers when requested', function()
+      local partial_file = [[
+IncLabel() ;
+  q 5
+]]
+
+     local ast = token.parse_incremental(m, partial_file, require('mparse.highlighter').transformer, 10)
+     eq(ast[1].pos.line_number, 11)
+    end)
   end)
 end)

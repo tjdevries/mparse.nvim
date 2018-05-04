@@ -13,7 +13,7 @@ local V = patterns.V
 -- }}}
 -- Option Definitions {{{
 local parser_options = {
-  parameters_enabled = false,
+  parameters_enabled = true,
   strict_compiler_directives = true,
   strict_tag_headers = true,
 }
@@ -105,9 +105,12 @@ local stringRelationalOperators = patterns.branch(
   patterns.literal('?')   -- Pattern matching
 )
 
-local relationalOperators = patterns.branch(
-  numericRelationalOperators,
-  stringRelationalOperators
+local relationalOperators = patterns.concat(
+  patterns.one_or_no(patterns.literal("'")), -- Optional Unary Not
+  patterns.branch(
+    numericRelationalOperators,
+    stringRelationalOperators
+  )
 )
 
 local logicalOperators = patterns.branch(
@@ -115,7 +118,8 @@ local logicalOperators = patterns.branch(
   -- patterns.literal('&&'), -- Not ANSI M, so we won't use
   patterns.literal('!'),
   -- patterns.literal('||'), -- Not ANSI M, so we won't use
-  patterns.literal("'")      -- Unary NOT
+  patterns.literal("'"),      -- Unary NOT
+  patterns.literal("'=")
 )
 
 local concatenationOperators = patterns.literal('_')
@@ -202,7 +206,8 @@ local nonQuoteAscii = patterns.branch(
   patterns.literal('`'),
   patterns.literal('{'),
   patterns.literal('}'),
-  patterns.literal('~')
+  patterns.literal('~'),
+  patterns.literal('|')
 )
 
 local stringCharacter = patterns.branch(
@@ -330,7 +335,17 @@ local m_grammar = token.define(function(_ENV)
   -- luacheck: globals START
   START "mFile"
   -- luacheck: globals SUPPRESS
-  SUPPRESS "mParameterFinder"
+  SUPPRESS(
+    "mParameterFinder"
+    , "mBody"
+    , "mBodyLine"
+    , "mArithmeticTokens"
+    , "mValidExpression"
+    , "mArithmeticExpression"
+
+    , "mCommandFinish"
+  )
+
   -- }}}
   -- Basic Definitions {{{
   -- {{{ mDigit
@@ -419,7 +434,7 @@ local m_grammar = token.define(function(_ENV)
   ) -- }}}
   -- mLabel* {{{
   mLabelName = patterns.capture(namedIdentifiers)
-  mLabel = patterns.capture(
+  mLabel = (
     patterns.concat(
       patterns.start_of_line,
       V("mLabelName"),
@@ -435,18 +450,14 @@ local m_grammar = token.define(function(_ENV)
   mArgumentDeclaration = patterns.concat(
     left_parenth,
     patterns.capture(
-      patterns.group_capture(
-        patterns.one_or_no(
-          patterns.concat(
-            V("mFunctionArgument"),
-            patterns.any_amount(
-              patterns.concat(comma, V("mFunctionArgument"))
-            )
+      patterns.one_or_no(
+        patterns.concat(
+          patterns.group_capture(V("mFunctionArgument"), 'functionArguments'),
+          patterns.any_amount(
+            patterns.concat(comma, V("mFunctionArgument"))
           )
         )
-      ),
-      -- Name of the group
-      "functionArguments"
+      )
     ),
     right_parenth,
     #whitespace
@@ -805,18 +816,17 @@ local m_grammar = token.define(function(_ENV)
       patterns.one_or_no(V("mDigit"))
     )
   )
-  mCommandArgs = patterns.branch(
-    V("mCommandSeparator"),
-    V("mFunctionCall"),
-    V("mCommandOperator"),
-    -- TODO: Some of these digits are not getting captured correctly
-    V("mDigit"),
-    V("mString"),
-    -- TODO: Add this with back captures or something.
-    -- Not sure how to get it to work correctly
-    -- + V("mParameter")
-    V("mVariable"),
-    anyCharacter
+  mCommandArgs = patterns.any_amount(
+    patterns.branch(
+      V("mCommandSeparator"),
+      V("mFunctionCall"),
+      V("mCommandOperator"),
+      -- TODO: Some of these digits are not getting captured correctly
+      V("mDigit"),
+      V("mString"),
+      V("mVariable"),
+      anyCharacter
+    )
   )
   mCommandFinish = patterns.branch(
     patterns.look_ahead(
@@ -840,19 +850,36 @@ local m_grammar = token.define(function(_ENV)
   -- Should allow for highlight parameters with different colors!
   -- mParameter = Cb('closed_paren') * namedIdentifiers
   -- mParameter = patterns.back_capture('functionArguments')
-  mParameter = patterns.function_capture(V("mVariableNonArray"), function (string, index, left, right)
-    print('================================================================================')
-    print('s:', string)
-    print('i:', index)
-    print('@:', string[index])
-    print('l:', require('mparse.util').to_string(left))
-    print('r:', right)
-
-    if pcall(patterns.back_capture('functionArguments')) then
-      print('B:', patterns.back_capture('functionArguments'))
-    else
-      print('B:', 'Nope')
+  mParameter = patterns.function_capture(V("mVariableNonArray"), function (_string, _index, matched)
+    if type(matched) ~= 'table' then
+      return false
     end
+
+    if matched.value == nil then
+      return false
+    end
+
+    print('================================================================================')
+    print('matched:', require('mparse.util').to_string(matched))
+    print('matched[value]:', matched.value)
+
+    local inspect = require('mparse.inspect')
+
+    local value = matched.value
+
+
+    local cap = patterns.back_capture('functionArguments')
+    local tab = patterns.table_capture(cap)
+
+    print('B:', cap)
+    print('B - t', pcall(function()
+      return cap:match('arg1')
+    end))
+
+    print('table match', pcall(function()
+      return tab:match('')
+    end))
+
     print('================================================================================')
     return false
   end)
@@ -936,8 +963,8 @@ local m_grammar = token.define(function(_ENV)
   )
   mVariable = patterns.capture(
     patterns.branch(
-      -- V("mParameter") ,
-      V("mVariableIntrinsic")
+      V("mParameter")
+      , V("mVariableIntrinsic")
       , V("mVariableGlobal")
       , V("mVariableArray")
       , V("mVariableNonArray")

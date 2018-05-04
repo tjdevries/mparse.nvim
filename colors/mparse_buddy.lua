@@ -33,8 +33,8 @@ Group.new('mDigit', g.Number)
 Group.new('mLabelName', c.orange)
 
 -- Group.new('mFunctionCall', c.orange, nil, s.none)
-Group.new('mFunctionCall', g.Function.fg:light(.2), nil, s.none)
-Group.new('mDoFunctionCall', g.Function)
+Group.new('mFunctionCall', c.orange:light(.2), nil, s.none)
+Group.new('mDoFunctionCall', c.orange:light(.1), nil, s.none)
 
 Group.new('mFunctionParenths', c.softwhite)
 Group.new('mFunctionLeftParenth', g.mFunctionParenths)
