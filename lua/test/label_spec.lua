@@ -35,8 +35,7 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
 ]])
     local arguments = helpers.get_item(parsed, 'id', 'mArgumentDeclaration')
     neq(nil, arguments)
-    eq('arg1', arguments[1].value)
-    eq('arg2', arguments[2].value)
+    eq('arg1,arg2', arguments.value)
 
     local command = helpers.get_item(parsed, 'id', 'mWriteCommand')
     neq(nil, command)
@@ -48,11 +47,18 @@ MyCommentedLabel(arg1,arg2) ; This is a comment
     eq(s.pos.finish, 118)
     eq(s.pos.line_number, 3)
 
-    if grammar.parameters_enabled then
+    if grammar.options.parameters_enabled then
+      eq({ arg1 = true, arg2 = true }, grammar.__get_current_arguments())
+
       local param = helpers.get_item(command, 'id', 'mParameter')
       eq(param.id, 'mParameter')
       eq(param.value, 'arg1')
-      eq(param.pos, {start=120, finish=123})
+
+      local second_param = helpers.get_item(parsed, 'id', 'mParameter', 2)
+      eq(second_param.id, 'mParameter')
+      eq(second_param.value, 'arg2')
+    else
+      eq({ }, grammar.__get_current_arguments())
     end
   end)
   it('should not think everything is a parameter', function()
@@ -443,6 +449,30 @@ IfLabel2() ;
   q
 ]])
         neq(nil, parsed)
+      end)
+
+      it('should handle extra parenths', function()
+        local parsed = epnf.parsestring(m, [[
+IfLabel3() ;
+  i (myvar) w "TRUE"
+  q
+]])
+        neq(nil, parsed)
+        eq('myvar', helpers.get_item(parsed, 'id', 'mVariable').value)
+      end)
+      it('should handle not equal', function()
+        local parsed = epnf.parsestring(m, [[
+IfLabel4() ;
+  i ((myvar)'=(yourvar)) w "Done"
+  q
+]])
+        neq(nil, parsed)
+        eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+
+        local inner_expression = helpers.get_item(parsed, 'id', 'mIfInnerExpression')
+        eq('myvar', inner_expression[1].value)
+        eq("'=", inner_expression[2].value)
+        eq('yourvar', inner_expression[3].value)
       end)
     end)
     describe('Quit Command ==>', function()

@@ -3,8 +3,11 @@ ExampleRoutine ; This is a routine
   ; SCOPE:       PUBLIC
   ; DESCRIPTION: This is an exammple
   ; Check this out...
-Example(var) ;;#testTag# It can handle compiler directives
+Example(var,param2) ;;#testTag# It can handle compiler directives
   n factor,idx,myVar
+  ; It can tell what parameters are :)
+  w var,param2
+  ;
   ; It knows about intrinsics!
   s factor($J)=$$setDefault(0,factor,"default")
   s ^GLOBAL="Test"
@@ -18,4 +21,7 @@ Example(var) ;;#testTag# It can handle compiler directives
   s myVar=$G(myVar,$s(1:$$writeSomeStuff("this out to print once and then again")))
   s indir=@myVar@("hello","world")=10
   s indirected=@$$exampleFunc("a",.dotVar)@("index")
-  q
+  i factor'="Hello world" d  q 0
+  . ; hello world
+  . w !,"Inside of if statement"
+  q 1

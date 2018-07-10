@@ -3,6 +3,7 @@
 --  Indirection, @, @...@
 --
 -- Programming-wise:
+local current_arguments = {}
 
 -- Imports {{{
 local token = require('mparse.token')
@@ -336,8 +337,7 @@ local m_grammar = token.define(function(_ENV)
   START "mFile"
   -- luacheck: globals SUPPRESS
   SUPPRESS(
-    "mParameterFinder"
-    , "mBody"
+    "mBody"
     , "mBodyLine"
     , "mArithmeticTokens"
     , "mValidExpression"
@@ -450,15 +450,31 @@ local m_grammar = token.define(function(_ENV)
   mArgumentDeclaration = patterns.concat(
     left_parenth,
     patterns.capture(
-      patterns.one_or_no(
-        patterns.concat(
-          patterns.group_capture(V("mFunctionArgument"), 'functionArguments'),
-          patterns.any_amount(
-            patterns.concat(comma, V("mFunctionArgument"))
+      patterns.function_capture(
+        patterns.capture(
+          patterns.one_or_no(
+            patterns.concat(
+              V("mFunctionArgument"),
+              patterns.any_amount(
+                patterns.concat(comma, V("mFunctionArgument"))
+              )
+            )
           )
-        )
-      )
-    ),
+        ),
+        -- Update the current arguments table
+        function (_string, _index, matched)
+          if parser_options.parameters_enabled then
+            local temp = string.split(matched, ',')
+
+            current_arguments = {}
+            for k, v in pairs(temp) do
+              current_arguments[v] = true
+            end
+          end
+
+          return true
+        end
+      )),
     right_parenth,
     #whitespace
   )
@@ -541,30 +557,16 @@ local m_grammar = token.define(function(_ENV)
   )
 
   mIfInnerExpression = patterns.concat(
-    patterns.optional_surrounding_parenths(V("mArithmeticTokens")),
+    patterns.optional_surrounding_parenths(V("mArithmeticExpression")),
     patterns.any_amount(
       patterns.concat(
         V("mIfOperators"),
-        patterns.optional_surrounding_parenths(V("mArithmeticTokens"))
+        patterns.optional_surrounding_parenths(V("mArithmeticExpression"))
       )
     )
   )
 
-  -- TODO: The parenths are still unexpected here
-  -- Need to balance them somehow
-  -- mIfExpression = patterns.branch(
-  --   patterns.concat(
-  --     patterns.literal('('),
-  --     V("mIfInnerExpression"),
-  --     patterns.literal(')')
-  --   ),
-  --   V("mIfInnerExpression")
-  -- )
-  mIfExpression = patterns.concat(
-    patterns.one_or_no(patterns.literal('(')),
-    V("mIfInnerExpression"),
-    patterns.one_or_no(patterns.literal(')'))
-  )
+  mIfExpression = patterns.optional_surrounding_parenths(V("mIfInnerExpression"))
 
   mValidExpression = patterns.branch(
     V("mConditionalExpression"),
@@ -848,41 +850,33 @@ local m_grammar = token.define(function(_ENV)
   -- Checks what the current parameters are,
   -- and then if it matches, then we say it's a parameter
   -- Should allow for highlight parameters with different colors!
-  -- mParameter = Cb('closed_paren') * namedIdentifiers
-  -- mParameter = patterns.back_capture('functionArguments')
-  mParameter = patterns.function_capture(V("mVariableNonArray"), function (_string, _index, matched)
-    if type(matched) ~= 'table' then
-      return false
-    end
+  mParameter = patterns.capture(
+    patterns.function_capture(
+      V("mVariableNonArray"),
+      function (_string, _index, matched)
+        if not parser_options.parameters_enabled then
+          return false
+        end
 
-    if matched.value == nil then
-      return false
-    end
+        if type(matched) ~= 'table' then
+          return false
+        end
 
-    print('================================================================================')
-    print('matched:', require('mparse.util').to_string(matched))
-    print('matched[value]:', matched.value)
+        if matched.value == nil then
+          return false
+        end
 
-    local inspect = require('mparse.inspect')
-
-    local value = matched.value
-
-
-    local cap = patterns.back_capture('functionArguments')
-    local tab = patterns.table_capture(cap)
-
-    print('B:', cap)
-    print('B - t', pcall(function()
-      return cap:match('arg1')
-    end))
-
-    print('table match', pcall(function()
-      return tab:match('')
-    end))
-
-    print('================================================================================')
-    return false
-  end)
+        if current_arguments[matched.value] then
+          -- print('================================================================================')
+          -- local inspect = require('mparse.inspect')
+          -- print(inspect(current_arguments))
+          return true
+        else
+          return false
+        end
+      end
+    )
+  )
 
   mIndirectionOperator = patterns.capture(patterns.literal('@'))
   mVariableIntrinsic = patterns.capture(
@@ -1008,7 +1002,12 @@ local m_grammar = token.define(function(_ENV)
   -- }}}
 end)
 
+local get_current_arguments = function() return current_arguments end
+
 return { -- {{{
   m_grammar = m_grammar,
   options = parser_options,
+
+  -- Debug functions, useful for testing the current state
+  __get_current_arguments = get_current_arguments,
 } -- }}}

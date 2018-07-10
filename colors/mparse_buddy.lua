@@ -21,7 +21,7 @@ Group.new('mVariableIndirect', g.mVariable)
 Group.new('mVariableIntrinsic', g.mVariable.fg:light(.1), nil, s.bold)
 Group.new('mIndirectionOperator', c.red, c.none, s.bold)
 
-Group.new('mParameter', c.blue, nil, s.bold)
+Group.new('mParameter', c.blue:dark(.1), nil, s.bold + s.italic)
 
 Group.new('mCommentText', g.Comment, nil, s.italic)
 Group.new('mCommentSemiColon', g.Comment, nil, s.none)

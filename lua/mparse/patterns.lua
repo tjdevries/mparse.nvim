@@ -137,10 +137,29 @@ end
 
 -- luacheck: ignore 142
 function string:split(s)
-  local sep, fields = s or ",", {}
-  local pattern = string.format("([^%s]+)", sep)
-  self:gsub(pattern, function(c) fields[#fields + 1] = c end)
-  return fields
+  if self == nil then
+    return {}
+  end
+
+  local t = {}
+  local final_pattern = "(.-)" .. s
+  local last_end = 1
+  local s, e, cap = self:find(final_pattern, 1)
+  while s do
+    if s ~= 1 or cap ~= "" then
+      table.insert(t, cap)
+    end
+
+    last_end = e + 1
+    s, e, cap = self:find(final_pattern, last_end)
+  end
+
+  if last_end <= #self then
+    cap = self:sub(last_end)
+    table.insert(t, cap)
+  end
+
+  return t
 end
 
 return patterns

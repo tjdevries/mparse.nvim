@@ -19,9 +19,17 @@ end
 
 local get_item
 
-get_item = function(t, param, key)
+get_item = function(t, param, key, result_number, current_found)
   if t == nil then
     return nil
+  end
+
+  if result_number == nil then
+    result_number = 1
+  end
+
+  if current_found == nil then
+    current_found = 0
   end
 
   if t[param] == key then
@@ -29,18 +37,25 @@ get_item = function(t, param, key)
   end
 
   for k, _ in ipairs(t) do
-    -- print('checking k[param]: ', k, t[k][param])
     if t[k][param] == key then
-      -- print('\treturning.... ', k, v, util.to_string(t))
-      return t[k]
+      current_found = current_found + 1
+
+      if current_found >= result_number then
+        return t[k]
+      end
     end
   end
 
   local result = nil
   for _, v in ipairs(t) do
     if type(v) == 'table' then
-      result = get_item(v, param, key)
-      if (result) then return result end
+      result = get_item(v, param, key, result_number, current_found)
+      if (result) then
+        current_found = current_found + 1
+        if current_found >= result_number then
+          return result
+        end
+      end
     end
   end
 
