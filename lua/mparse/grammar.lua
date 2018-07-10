@@ -344,6 +344,9 @@ local m_grammar = token.define(function(_ENV)
     , "mValidExpression"
     , "mArithmeticExpression"
 
+    , "mIfOperators"
+    , "mIfCommandArgs"
+
     , "mCommandFinish"
   )
 
@@ -864,9 +867,6 @@ local m_grammar = token.define(function(_ENV)
         end
 
         if current_arguments[matched.value] then
-          -- print('================================================================================')
-          -- local inspect = require('mparse.inspect')
-          -- print(inspect(current_arguments))
           return true
         else
           return false
