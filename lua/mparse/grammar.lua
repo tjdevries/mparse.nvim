@@ -116,11 +116,12 @@ local relationalOperators = patterns.concat(
 
 local logicalOperators = patterns.branch(
   patterns.literal('&'),
-  -- patterns.literal('&&'), -- Not ANSI M, so we won't use
   patterns.literal('!'),
-  -- patterns.literal('||'), -- Not ANSI M, so we won't use
   patterns.literal("'"),      -- Unary NOT
   patterns.literal("'=")
+
+  -- patterns.literal('||'), -- Not ANSI M, so we won't use
+  -- patterns.literal('&&'), -- Not ANSI M, so we won't use
 )
 
 local concatenationOperators = patterns.literal('_')
@@ -551,23 +552,6 @@ local m_grammar = token.define(function(_ENV)
     V("mArithmeticExpression")
   )
 
-  mIfOperators = patterns.branch(
-    logicalOperators,
-    relationalOperators
-  )
-
-  mIfInnerExpression = patterns.concat(
-    patterns.optional_surrounding_parenths(V("mArithmeticExpression")),
-    patterns.any_amount(
-      patterns.concat(
-        V("mIfOperators"),
-        patterns.optional_surrounding_parenths(V("mArithmeticExpression"))
-      )
-    )
-  )
-
-  mIfExpression = patterns.optional_surrounding_parenths(V("mIfInnerExpression"))
-
   mValidExpression = patterns.branch(
     V("mConditionalExpression"),
     V("mArithmeticExpression")
@@ -683,17 +667,30 @@ local m_grammar = token.define(function(_ENV)
     disable_optional_argument_parenths = true,
   })
 
-  _mIfCommandSection = patterns.branch(
-    V("mIfExpression"),
-    V("mValidExpression")
+  mIfOperators = patterns.capture(
+    patterns.branch(
+      relationalOperators,
+      logicalOperators
+    )
   )
 
+  mIfExpression = patterns.concat(
+    patterns.optional_surrounding_parenths(V("mArithmeticExpression")),
+    patterns.any_amount(
+      patterns.concat(
+        V("mIfOperators"),
+        patterns.optional_surrounding_parenths(V("mArithmeticExpression"))
+      )
+    )
+  )
+
+
   mIfCommandArgs = patterns.concat(
-    V("_mIfCommandSection"),
+    V("mIfExpression"),
     patterns.any_amount(
       patterns.concat(
         V("mCommandSeparator"),
-        V("_mIfCommandSection")
+        V("mIfExpression")
       )
     )
   )

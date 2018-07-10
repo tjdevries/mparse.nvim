@@ -75,11 +75,23 @@ testLabl() ;
     local parsed = epnf.parsestring(m, [[
 testLabl() ;
   i (option=4),(other=10) w "HELLO"
+  q
 ]])
     neq(nil, parsed)
     eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
     eq('w', helpers.get_item(parsed, 'id', 'mWriteCommand').value)
   end)
+
+  it('should handle fail on multiple statements (with bad parenths)', function()
+    local parsed = epnf.parsestring(m, [[
+testLabl() ;
+  i (option=4,other=10) w "HELLO"
+  q
+]])
+    neq(nil, parsed)
+    neq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
+  end)
+
   it('should handle multiple statements (with extra parenths)', function()
     local parsed = epnf.parsestring(m, [[
 testLabl() ;

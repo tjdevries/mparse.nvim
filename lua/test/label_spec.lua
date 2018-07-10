@@ -469,7 +469,7 @@ IfLabel4() ;
         neq(nil, parsed)
         eq(nil, helpers.get_item(parsed, 'id', 'mCapturedError'))
 
-        local inner_expression = helpers.get_item(parsed, 'id', 'mIfInnerExpression')
+        local inner_expression = helpers.get_item(parsed, 'id', 'mIfExpression')
         eq('myvar', inner_expression[1].value)
         eq("'=", inner_expression[2].value)
         eq('yourvar', inner_expression[3].value)
