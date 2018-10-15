@@ -17,6 +17,8 @@ local parser_options = {
   parameters_enabled = true,
   strict_compiler_directives = true,
   strict_tag_headers = true,
+
+  parse_functions = false,
 }
 -- }}}
 -- Standard definitions {{{
