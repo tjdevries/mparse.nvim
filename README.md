@@ -16,8 +16,11 @@ I would recommend installing lpeg, as it's faster than the shipped pure lua lpeg
 
 call plug#begin()
 
-Plug 'tweekmonster/colorpal.vim'
+Plug 'tjdevries/colorbuddy.vim'
 Plug 'tjdevries/mparse.nvim'
+
+" Have some limited support for
+Plug 'tweekmonster/colorpal.vim'
 
 call plug#end()
 ```
